@@ -70,6 +70,7 @@ routes, app setup, and callers stay unchanged.
    | `DB_NAME`        | `studyhabits`   |
    | `JWT_SECRET`     | — (required)    |
    | `JWT_EXPIRES_IN` | `7d`            |
+   | `CORS_ORIGINS`   | — (any origin)  |
 
    Generate a signing secret with:
 
@@ -130,6 +131,24 @@ Verifies credentials and returns an auth token.
 Responds `200` with the same body shape as `/auth/register`.
 Errors: `400` when input is invalid, `401` for an unknown email **or** a wrong password.
 
+## CORS
+
+Browser clients (the web build) run on a different origin to the API, so
+cross-origin requests are allowed. Native apps send no `Origin` header and are
+unaffected.
+
+By default any origin is reflected, which keeps local development working
+without configuration. To restrict it, list the allowed origins:
+
+```bash
+CORS_ORIGINS=http://localhost:8081,https://app.example.com
+```
+
+Requests from an origin that isn't listed come back without the
+`Access-Control-Allow-Origin` header, so the browser blocks them. Allowed
+methods are `GET`, `POST` and `OPTIONS`, and the accepted request headers are
+`Content-Type` and `Authorization`.
+
 ## Security
 
 - Passwords are hashed with bcrypt (work factor 10); plaintext is never stored or logged.
@@ -151,6 +170,7 @@ Not handled here, but needed before production:
 - Terminate TLS so credentials and tokens are only sent over HTTPS.
 - Set `app.set('trust proxy', 1)` when running behind a reverse proxy, otherwise rate
   limiting sees the proxy's IP for every request.
-- Restrict CORS to the client's origin and add security headers (e.g. `helmet`).
+- Restrict CORS to the client's origin (see `CORS_ORIGINS` above) and add security
+  headers (e.g. `helmet`).
 - Signed tokens are issued on login/registration; protecting routes with them
   (verification middleware) comes with the first authenticated endpoint.
