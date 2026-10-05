@@ -4,7 +4,11 @@ import {
   createBottomTabScreen,
 } from '@react-navigation/bottom-tabs';
 import { getHeaderTitle } from '@react-navigation/elements';
-import { CommonActions, createStaticNavigation } from '@react-navigation/native';
+import {
+  CommonActions,
+  createStaticNavigation,
+  type StaticParamList,
+} from '@react-navigation/native';
 import {
   createNativeStackNavigator,
   createNativeStackScreen,
@@ -100,8 +104,7 @@ const HomeTabs = createBottomTabNavigator({
   },
 });
 
-const RootStack = createNativeStackNavigator({
-  initialRouteName: 'Login',
+const AppStack = createNativeStackNavigator({
   screenOptions: {
     header: ({ navigation, route, options, back }) => (
       <AppbarHeader
@@ -111,18 +114,6 @@ const RootStack = createNativeStackNavigator({
     ),
   },
   screens: {
-    Login: createNativeStackScreen({
-      screen: Login,
-      options: {
-        headerShown: false,
-      },
-    }),
-    SignUp: createNativeStackScreen({
-      screen: SignUp,
-      options: {
-        headerShown: false,
-      },
-    }),
     HomeTabs: createNativeStackScreen({
       screen: HomeTabs,
       options: {
@@ -166,10 +157,24 @@ const RootStack = createNativeStackNavigator({
   },
 });
 
-export const Navigation = createStaticNavigation(RootStack);
+const AuthStack = createNativeStackNavigator({
+  screenOptions: {
+    headerShown: false,
+  },
+  screens: {
+    Login: createNativeStackScreen({ screen: Login }),
+    SignUp: createNativeStackScreen({ screen: SignUp }),
+  },
+});
 
-type RootStackType = typeof RootStack;
+export const AppNavigation = createStaticNavigation(AppStack);
+
+export const AuthNavigation = createStaticNavigation(AuthStack);
+
+export type AuthStackParamList = StaticParamList<typeof AuthStack>;
+
+type AppStackType = typeof AppStack;
 
 declare module '@react-navigation/native' {
-  interface RootNavigator extends RootStackType {}
+  interface RootNavigator extends AppStackType {}
 }
