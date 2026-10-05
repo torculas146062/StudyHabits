@@ -11,7 +11,6 @@ import {
 import { getHeaderTitle } from '@react-navigation/elements';
 import {
   CommonActions,
-  DrawerActions,
   createStaticNavigation,
   type StaticParamList,
 } from '@react-navigation/native';
@@ -20,7 +19,7 @@ import {
   createNativeStackScreen,
 } from '@react-navigation/native-stack';
 import type { ReactNode } from 'react';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import {
   Appbar,
   BottomNavigation,
@@ -37,14 +36,13 @@ import { Updates } from './screens/Updates';
 type AppbarHeaderProps = {
   title?: ReactNode;
   onBack?: () => void;
-  left?: ReactNode;
   right?: ReactNode;
 };
 
-function AppbarHeader({ title, onBack, left, right }: AppbarHeaderProps) {
+function AppbarHeader({ title, onBack, right }: AppbarHeaderProps) {
   return (
     <Appbar.Header>
-      {left ?? (onBack ? <Appbar.BackAction onPress={onBack} /> : null)}
+      {onBack ? <Appbar.BackAction onPress={onBack} /> : null}
       <Appbar.Content title={title} />
       {right}
     </Appbar.Header>
@@ -144,55 +142,58 @@ function HomeTabsLayout() {
   );
 }
 
-/** MD3 navigation drawer, used instead of the bottom bar in landscape. */
-function HomeDrawerContent(props: DrawerContentComponentProps) {
+/**
+ * MD3 navigation rail. `Drawer.CollapsedItem` is built for an 80dp rail, so the
+ * drawer stays on screen in landscape as icons instead of opening over content.
+ */
+function HomeRailContent(props: DrawerContentComponentProps) {
   const activeRoute = props.state.routeNames[props.state.index];
   const { navigation } = props;
 
   return (
-    <DrawerContentScrollView {...props}>
-      <PaperDrawer.Section title="Study Habits">
-        <PaperDrawer.Item
-          label="Feed"
-          icon="newspaper"
-          active={activeRoute === 'Home'}
-          onPress={() => navigation.navigate('Home')}
-        />
-        <PaperDrawer.Item
-          label="Updates"
-          icon="bell"
-          active={activeRoute === 'Updates'}
-          onPress={() => navigation.navigate('Updates')}
-        />
-      </PaperDrawer.Section>
+    <DrawerContentScrollView
+      {...props}
+      contentContainerStyle={styles.railContent}
+    >
+      <PaperDrawer.CollapsedItem
+        label="Feed"
+        focusedIcon="newspaper"
+        unfocusedIcon="newspaper-variant-outline"
+        active={activeRoute === 'Home'}
+        onPress={() => navigation.navigate('Home')}
+      />
+      <PaperDrawer.CollapsedItem
+        label="Updates"
+        focusedIcon="bell"
+        unfocusedIcon="bell-outline"
+        active={activeRoute === 'Updates'}
+        onPress={() => navigation.navigate('Updates')}
+      />
     </DrawerContentScrollView>
   );
 }
 
-/** A permanent drawer only fits once the window is wide (MD3 expanded class). */
-const PERMANENT_DRAWER_MIN_WIDTH = 840;
+// A collapsed item is exactly as wide as the rail, so the scroll view's default
+// horizontal padding would push it past the rail's edge.
+const styles = StyleSheet.create({
+  railContent: {
+    paddingStart: 0,
+    paddingEnd: 0,
+  },
+});
 
-function HomeDrawerLayout({ permanent }: { permanent: boolean }) {
+/** Drawer.CollapsedItem's own width, which is also MD3's navigation rail width. */
+const RAIL_WIDTH = 80;
+
+function HomeRailLayout() {
   return (
     <Drawer.Navigator
-      drawerContent={(props) => <HomeDrawerContent {...props} />}
+      drawerContent={(props) => <HomeRailContent {...props} />}
       screenOptions={{
-        drawerType: permanent ? 'permanent' : 'front',
-        header: ({ route, options, navigation }) => (
-          <AppbarHeader
-            title={getHeaderTitle(options, route.name)}
-            left={
-              permanent ? undefined : (
-                <Appbar.Action
-                  icon="menu"
-                  accessibilityLabel="Open navigation menu"
-                  onPress={() =>
-                    navigation.dispatch(DrawerActions.toggleDrawer())
-                  }
-                />
-              )
-            }
-          />
+        drawerType: 'permanent',
+        drawerStyle: { width: RAIL_WIDTH },
+        header: ({ route, options }) => (
+          <AppbarHeader title={getHeaderTitle(options, route.name)} />
         ),
       }}
     >
@@ -203,14 +204,14 @@ function HomeDrawerLayout({ permanent }: { permanent: boolean }) {
 }
 
 /**
- * Landscape swaps the bottom bar for a drawer; portrait keeps the bar. Reading
+ * Landscape shows a permanent icon rail; portrait keeps the bottom bar. Reading
  * the window dimensions means rotating or resizing adapts without a restart.
  */
 function HomeNavigation() {
   const { width, height } = useWindowDimensions();
 
   if (width > height) {
-    return <HomeDrawerLayout permanent={width >= PERMANENT_DRAWER_MIN_WIDTH} />;
+    return <HomeRailLayout />;
   }
 
   return <HomeTabsLayout />;
