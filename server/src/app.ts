@@ -1,21 +1,24 @@
 import express, { Express, NextFunction, Request, Response } from 'express';
-import healthRouter from './routes/health.routes';
+import { IHealthRepository } from './repositories/IHealthRepository';
+import { createHealthRouter } from './routes/health';
 
-const app: Express = express();
+export function createApp(healthRepository: IHealthRepository): Express {
+  const app = express();
 
-app.use(express.json());
+  app.use(express.json());
 
-app.use('/health', healthRouter);
+  app.use('/health', createHealthRouter(healthRepository));
 
-// 404 handler
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: 'Not Found' });
-});
+  // 404 handler
+  app.use((_req: Request, res: Response) => {
+    res.status(404).json({ error: 'Not Found' });
+  });
 
-// Error handler
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal Server Error' });
-});
+  // Error handler
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  });
 
-export default app;
+  return app;
+}

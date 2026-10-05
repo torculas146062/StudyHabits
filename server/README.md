@@ -7,12 +7,29 @@ API server built with **Node.js**, **TypeScript**, **Express**, and **mysql2**.
 ```
 src/
 ├── config/
-│   └── db.ts              # mysql2 connection pool
+│   └── db.ts                        # mysql2 connection pool (MySQL-specific)
+├── repositories/
+│   ├── IHealthRepository.ts         # IHealthRepository interface (port)
+│   └── mysql/
+│       └── MySqlHealthRepository.ts # MySQL implementation (owns all SQL)
 ├── routes/
-│   └── health.routes.ts   # Health check endpoint
+│   └── health.ts          # Health check endpoint
+├── container.ts           # Composition root: wires implementations
 ├── app.ts                 # Express app setup
 └── index.ts               # Entry point
 ```
+
+### Repository pattern
+
+Route handlers never talk to the database directly. They depend on repository
+interfaces (ports) in `src/repositories/`, while the database-specific
+implementations live in a subfolder named after the technology
+(`src/repositories/mysql/`). All SQL statements live in those implementations.
+
+`src/container.ts` is the composition root — the only module that decides which
+implementation is used. To switch databases, add an implementation for the new
+database (e.g. `src/repositories/postgres/`) and point the container at it;
+routes, app setup, and callers stay unchanged.
 
 ## Prerequisites
 
