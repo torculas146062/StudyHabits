@@ -12,9 +12,11 @@ import {
 import type { ReactNode } from 'react';
 import { Appbar, BottomNavigation } from 'react-native-paper';
 import { Home } from './screens/Home';
+import { Login } from './screens/Login';
 import { NotFound } from './screens/NotFound';
 import { Profile } from './screens/Profile';
 import { Settings } from './screens/Settings';
+import { SignUp } from './screens/SignUp';
 import { Updates } from './screens/Updates';
 
 type AppbarHeaderProps = {
@@ -99,6 +101,7 @@ const HomeTabs = createBottomTabNavigator({
 });
 
 const RootStack = createNativeStackNavigator({
+  initialRouteName: 'Login',
   screenOptions: {
     header: ({ navigation, route, options, back }) => (
       <AppbarHeader
@@ -108,6 +111,18 @@ const RootStack = createNativeStackNavigator({
     ),
   },
   screens: {
+    Login: createNativeStackScreen({
+      screen: Login,
+      options: {
+        headerShown: false,
+      },
+    }),
+    SignUp: createNativeStackScreen({
+      screen: SignUp,
+      options: {
+        headerShown: false,
+      },
+    }),
     HomeTabs: createNativeStackScreen({
       screen: HomeTabs,
       options: {

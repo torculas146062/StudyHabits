@@ -5,6 +5,7 @@ This is a minimal starter template for React Native apps using Expo and React Na
 It includes the following:
 
 - Example [Native Stack](https://reactnavigation.org/docs/native-stack-navigator) with a nested [Bottom Tab](https://reactnavigation.org/docs/bottom-tab-navigator)
+- Material Design 3 login/sign-up screens as the app entry point
 - Web support with [React Native for Web](https://necolas.github.io/react-native-web/)
 - UI components and Material Design 3 theming with [React Native Paper](https://oss.callstack.com/react-native-paper/), kept in sync with React Navigation
 - TypeScript support and configured for React Navigation
