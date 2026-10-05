@@ -1,15 +1,25 @@
-import { Button, Text } from '@react-navigation/elements';
+import { useNavigation } from '@react-navigation/native';
 import { StyleSheet, View } from 'react-native';
+import { Button, Text } from 'react-native-paper';
 
 export function Home() {
+  const navigation = useNavigation();
+
   return (
     <View style={styles.container}>
-      <Text>Home Screen</Text>
-      <Text>Open up 'src/App.tsx' to start working on your app!</Text>
-      <Button screen="Profile" params={{ user: 'jane' }}>
+      <Text variant="headlineSmall">Home Screen</Text>
+      <Text variant="bodyMedium">
+        Open up 'src/App.tsx' to start working on your app!
+      </Text>
+      <Button
+        mode="contained"
+        onPress={() => navigation.navigate('Profile', { user: 'jane' })}
+      >
         Go to Profile
       </Button>
-      <Button screen="Settings">Go to Settings</Button>
+      <Button mode="outlined" onPress={() => navigation.navigate('Settings')}>
+        Go to Settings
+      </Button>
     </View>
   );
 }

@@ -1,10 +1,10 @@
-import { Text } from '@react-navigation/elements';
 import { StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
 
 export function Updates() {
   return (
     <View style={styles.container}>
-      <Text>Updates Screen</Text>
+      <Text variant="headlineSmall">Updates Screen</Text>
     </View>
   );
 }

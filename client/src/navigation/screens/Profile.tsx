@@ -1,15 +1,18 @@
-import { Text } from '@react-navigation/elements';
 import { StaticScreenProps } from '@react-navigation/native';
 import { StyleSheet, View } from 'react-native';
+import { Avatar, Text } from 'react-native-paper';
 
 type Props = StaticScreenProps<{
   user: string;
 }>;
 
 export function Profile({ route }: Props) {
+  const { user } = route.params;
+
   return (
     <View style={styles.container}>
-      <Text>{route.params.user}'s Profile</Text>
+      <Avatar.Text label={user.charAt(0).toUpperCase()} size={64} />
+      <Text variant="headlineSmall">{user}'s Profile</Text>
     </View>
   );
 }

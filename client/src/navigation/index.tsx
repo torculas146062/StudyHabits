@@ -1,37 +1,89 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   createBottomTabNavigator,
   createBottomTabScreen,
 } from '@react-navigation/bottom-tabs';
-import { HeaderButton, Text } from '@react-navigation/elements';
-import { createStaticNavigation } from '@react-navigation/native';
+import { getHeaderTitle } from '@react-navigation/elements';
+import { CommonActions, createStaticNavigation } from '@react-navigation/native';
 import {
   createNativeStackNavigator,
   createNativeStackScreen,
 } from '@react-navigation/native-stack';
-import { Image } from 'react-native';
-import bell from '../assets/bell.png';
-import newspaper from '../assets/newspaper.png';
+import type { ReactNode } from 'react';
+import { Appbar, BottomNavigation } from 'react-native-paper';
 import { Home } from './screens/Home';
 import { NotFound } from './screens/NotFound';
 import { Profile } from './screens/Profile';
 import { Settings } from './screens/Settings';
 import { Updates } from './screens/Updates';
 
+type AppbarHeaderProps = {
+  title?: ReactNode;
+  onBack?: () => void;
+  right?: ReactNode;
+};
+
+function AppbarHeader({ title, onBack, right }: AppbarHeaderProps) {
+  return (
+    <Appbar.Header>
+      {onBack ? <Appbar.BackAction onPress={onBack} /> : null}
+      <Appbar.Content title={title} />
+      {right}
+    </Appbar.Header>
+  );
+}
+
 const HomeTabs = createBottomTabNavigator({
+  screenOptions: {
+    animation: 'shift',
+    header: ({ route, options }) => (
+      <AppbarHeader title={getHeaderTitle(options, route.name)} />
+    ),
+  },
+  tabBar: ({ navigation, state, descriptors, insets }) => (
+    <BottomNavigation.Bar
+      navigationState={state}
+      safeAreaInsets={insets}
+      onTabPress={({ route, preventDefault }) => {
+        const event = navigation.emit({
+          type: 'tabPress',
+          target: route.key,
+          canPreventDefault: true,
+        });
+
+        if (event.defaultPrevented) {
+          preventDefault();
+        } else {
+          navigation.dispatch({
+            ...CommonActions.navigate(route.name, route.params),
+            target: state.key,
+          });
+        }
+      }}
+      renderIcon={({ route, focused, color }) =>
+        descriptors[route.key].options.tabBarIcon?.({
+          focused,
+          color,
+          size: 24,
+        }) ?? null
+      }
+      getLabelText={({ route }) => {
+        const { options } = descriptors[route.key];
+        return typeof options.tabBarLabel === 'string'
+          ? options.tabBarLabel
+          : typeof options.title === 'string'
+            ? options.title
+            : route.name;
+      }}
+    />
+  ),
   screens: {
     Home: createBottomTabScreen({
       screen: Home,
       options: {
         title: 'Feed',
         tabBarIcon: ({ color, size }) => (
-          <Image
-            source={newspaper}
-            tintColor={color}
-            style={{
-              width: size,
-              height: size,
-            }}
-          />
+          <MaterialCommunityIcons name="newspaper" color={color} size={size} />
         ),
       },
     }),
@@ -39,14 +91,7 @@ const HomeTabs = createBottomTabNavigator({
       screen: Updates,
       options: {
         tabBarIcon: ({ color, size }) => (
-          <Image
-            source={bell}
-            tintColor={color}
-            style={{
-              width: size,
-              height: size,
-            }}
-          />
+          <MaterialCommunityIcons name="bell" color={color} size={size} />
         ),
       },
     }),
@@ -54,6 +99,14 @@ const HomeTabs = createBottomTabNavigator({
 });
 
 const RootStack = createNativeStackNavigator({
+  screenOptions: {
+    header: ({ navigation, route, options, back }) => (
+      <AppbarHeader
+        title={getHeaderTitle(options, route.name)}
+        onBack={back ? navigation.goBack : undefined}
+      />
+    ),
+  },
   screens: {
     HomeTabs: createNativeStackScreen({
       screen: HomeTabs,
@@ -78,10 +131,11 @@ const RootStack = createNativeStackNavigator({
       screen: Settings,
       options: ({ navigation }) => ({
         presentation: 'modal',
-        headerRight: () => (
-          <HeaderButton onPress={navigation.goBack}>
-            <Text>Close</Text>
-          </HeaderButton>
+        header: ({ route, options }) => (
+          <AppbarHeader
+            title={getHeaderTitle(options, route.name)}
+            right={<Appbar.Action icon="close" onPress={navigation.goBack} />}
+          />
         ),
       }),
     }),

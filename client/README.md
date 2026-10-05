@@ -6,6 +6,7 @@ It includes the following:
 
 - Example [Native Stack](https://reactnavigation.org/docs/native-stack-navigator) with a nested [Bottom Tab](https://reactnavigation.org/docs/bottom-tab-navigator)
 - Web support with [React Native for Web](https://necolas.github.io/react-native-web/)
+- UI components and Material Design 3 theming with [React Native Paper](https://oss.callstack.com/react-native-paper/), kept in sync with React Navigation
 - TypeScript support and configured for React Navigation
 - Automatic [deep link](https://reactnavigation.org/docs/deep-linking) and [URL handling configuration](https://reactnavigation.org/docs/configuring-links)
 - Theme support [based on system appearance](https://reactnavigation.org/docs/themes/#using-the-operating-system-preferences)

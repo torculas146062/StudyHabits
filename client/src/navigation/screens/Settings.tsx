@@ -1,10 +1,10 @@
-import { Text } from '@react-navigation/elements';
 import { StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
 
 export function Settings() {
   return (
     <View style={styles.container}>
-      <Text>Settings Screen</Text>
+      <Text variant="headlineSmall">Settings Screen</Text>
     </View>
   );
 }
