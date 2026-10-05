@@ -7,6 +7,7 @@ It includes the following:
 - Example [Native Stack](https://reactnavigation.org/docs/native-stack-navigator) with a nested [Bottom Tab](https://reactnavigation.org/docs/bottom-tab-navigator)
 - Material Design 3 login/sign-up screens as the app entry point
 - Session-backed auth: token and user persisted with AsyncStorage and shared through React context
+- Material Design 3 Settings screen with a System / Light / Dark theme preference, also persisted
 - Web support with [React Native for Web](https://necolas.github.io/react-native-web/)
 - UI components and Material Design 3 theming with [React Native Paper](https://oss.callstack.com/react-native-paper/), kept in sync with React Navigation
 - TypeScript support and configured for React Navigation
@@ -71,6 +72,17 @@ To point the app at a specific backend:
 ```sh
 EXPO_PUBLIC_API_URL=http://192.168.1.20:3000 npm start
 ```
+
+> `EXPO_PUBLIC_*` values are inlined into the bundle at build time and cached, so
+> after changing one, clear the bundler cache (`npm start -- --clear`, or
+> `npx expo export --clear`), otherwise the old value is reused.
+
+### Theming
+
+`ThemePreferenceProvider` (`src/context/ThemeContext.tsx`) holds a `system` /
+`light` / `dark` preference, persisted in AsyncStorage under `studyhabits.theme`
+and applied to both React Native Paper and React Navigation. `system` follows the
+device setting, so the app matches the OS unless the user overrides it.
 
 ### Sessions
 

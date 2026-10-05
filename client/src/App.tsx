@@ -16,6 +16,10 @@ import {
   adaptNavigationTheme,
 } from 'react-native-paper';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import {
+  ThemePreferenceProvider,
+  useThemePreference,
+} from './context/ThemeContext';
 import { resetDeepLinkPath } from './navigation/deepLinkPath';
 import { AppNavigation, AuthNavigation } from './navigation';
 
@@ -45,6 +49,7 @@ const hideSplash = () => {
  */
 function RootNavigation({ theme }: { theme: Theme }) {
   const { user, isRestoring } = useAuth();
+  const { isReady: isThemeReady } = useThemePreference();
 
   // While signed out, bring the web path back to the auth entry point so it
   // can't be replayed into the app stack on the next sign-in.
@@ -54,9 +59,9 @@ function RootNavigation({ theme }: { theme: Theme }) {
     }
   }, [isRestoring, user]);
 
-  // Keep the splash screen up until the stored session has been read, so the
-  // sign-in screen never flashes for an already signed-in user.
-  if (isRestoring) {
+  // Keep the splash screen up until the stored session and theme preference
+  // have been read, so neither the sign-in screen nor a light theme flashes.
+  if (isRestoring || !isThemeReady) {
     return null;
   }
 
@@ -73,14 +78,30 @@ function RootNavigation({ theme }: { theme: Theme }) {
 }
 
 export function App() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  return (
+    <ThemePreferenceProvider>
+      <AuthProvider>
+        <ThemedNavigation />
+      </AuthProvider>
+    </ThemePreferenceProvider>
+  );
+}
+
+/**
+ * Resolves the theme preference into a concrete scheme — following the device
+ * when the preference is `system` — and keeps React Native Paper and React
+ * Navigation in sync.
+ */
+function ThemedNavigation() {
+  const systemScheme = useColorScheme();
+  const { preference } = useThemePreference();
+
+  const isDark =
+    preference === 'system' ? systemScheme === 'dark' : preference === 'dark';
 
   return (
     <PaperProvider theme={isDark ? MD3DarkTheme : MD3LightTheme}>
-      <AuthProvider>
-        <RootNavigation theme={isDark ? DarkTheme : LightTheme} />
-      </AuthProvider>
+      <RootNavigation theme={isDark ? DarkTheme : LightTheme} />
     </PaperProvider>
   );
 }

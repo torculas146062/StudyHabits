@@ -1,45 +1,85 @@
-import { StyleSheet, View } from 'react-native';
-import { Button, Divider, Text } from 'react-native-paper';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Avatar,
+  Divider,
+  List,
+  SegmentedButtons,
+  useTheme,
+} from 'react-native-paper';
 import { useAuth } from '../../context/AuthContext';
+import {
+  useThemePreference,
+  type ThemePreference,
+} from '../../context/ThemeContext';
+
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 export function Settings() {
+  const theme = useTheme();
   const { user, signOut } = useAuth();
+  const { preference, setPreference } = useThemePreference();
 
   return (
-    <View style={styles.container}>
-      <Text variant="headlineSmall">Settings Screen</Text>
-
-      {user ? (
-        <View style={styles.account}>
-          <Text variant="labelLarge">Signed in as</Text>
-          <Text variant="bodyMedium">{user.name}</Text>
-          <Text variant="bodySmall">{user.email}</Text>
+    <ScrollView
+      style={{ backgroundColor: theme.colors.background }}
+      contentContainerStyle={styles.content}
+    >
+      <List.Section>
+        <List.Subheader>Appearance</List.Subheader>
+        <List.Item
+          title="Theme"
+          description="System follows your device setting"
+          left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
+        />
+        <View style={styles.themeOptions}>
+          <SegmentedButtons<ThemePreference>
+            value={preference}
+            onValueChange={setPreference}
+            buttons={THEME_OPTIONS}
+          />
         </View>
-      ) : null}
+      </List.Section>
 
-      <Divider style={styles.divider} />
+      <Divider />
 
-      <Button mode="outlined" icon="logout" onPress={signOut}>
-        Sign out
-      </Button>
-    </View>
+      <List.Section>
+        <List.Subheader>Account</List.Subheader>
+        {user ? (
+          <List.Item
+            title={user.name}
+            description={user.email}
+            // List.Item has no left padding of its own — it hands the inset to
+            // the left slot through this style. Only that is applied, so the
+            // avatar keeps its own colours (`color` is meant for icons).
+            left={({ style }) => (
+              <Avatar.Text
+                style={style}
+                size={40}
+                label={user.name.trim().charAt(0).toUpperCase()}
+              />
+            )}
+          />
+        ) : null}
+        <List.Item
+          title="Sign out"
+          left={(props) => <List.Icon {...props} icon="logout" />}
+          onPress={signOut}
+        />
+      </List.Section>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    padding: 24,
+  content: {
+    paddingBottom: 24,
   },
-  account: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  divider: {
-    alignSelf: 'stretch',
-    marginVertical: 8,
+  themeOptions: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
 });
