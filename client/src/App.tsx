@@ -16,6 +16,7 @@ import {
   adaptNavigationTheme,
 } from 'react-native-paper';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { StudyProvider } from './context/StudyContext';
 import {
   ThemePreferenceProvider,
   useThemePreference,
@@ -81,7 +82,9 @@ export function App() {
   return (
     <ThemePreferenceProvider>
       <AuthProvider>
-        <ThemedNavigation />
+        <StudyProvider>
+          <ThemedNavigation />
+        </StudyProvider>
       </AuthProvider>
     </ThemePreferenceProvider>
   );
