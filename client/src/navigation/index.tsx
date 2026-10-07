@@ -19,40 +19,48 @@ import {
   createNativeStackScreen,
 } from '@react-navigation/native-stack';
 import type { ReactNode } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import {
+  useWindowDimensions,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import {
   Appbar,
   BottomNavigation,
   Drawer as PaperDrawer,
 } from 'react-native-paper';
+import {
+  SafeAreaInsetsContext,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import type { HomeParamList } from './homeParamList';
+import { Calendar } from './screens/Calendar';
+import { Focus } from './screens/Focus';
 import { Home } from './screens/Home';
 import { Login } from './screens/Login';
 import { NotFound } from './screens/NotFound';
 import { Profile } from './screens/Profile';
 import { Settings } from './screens/Settings';
 import { SignUp } from './screens/SignUp';
-import { Updates } from './screens/Updates';
+import { Subjects } from './screens/Subjects';
+import { Todo } from './screens/Todo';
 
 type AppbarHeaderProps = {
   title?: ReactNode;
   onBack?: () => void;
   right?: ReactNode;
+  style?: StyleProp<ViewStyle>;
 };
 
-function AppbarHeader({ title, onBack, right }: AppbarHeaderProps) {
+function AppbarHeader({ title, onBack, right, style }: AppbarHeaderProps) {
   return (
-    <Appbar.Header>
+    <Appbar.Header style={style}>
       {onBack ? <Appbar.BackAction onPress={onBack} /> : null}
       <Appbar.Content title={title} />
       {right}
     </Appbar.Header>
   );
 }
-
-type HomeParamList = {
-  Home: undefined;
-  Updates: undefined;
-};
 
 const Tab = createBottomTabNavigator<HomeParamList>();
 const Drawer = createDrawerNavigator<HomeParamList>();
@@ -109,8 +117,17 @@ function HomeTabsLayout() {
     <Tab.Navigator
       screenOptions={{
         animation: 'shift',
-        header: ({ route, options }) => (
-          <AppbarHeader title={getHeaderTitle(options, route.name)} />
+        header: ({ route, options, navigation }) => (
+          <AppbarHeader
+            title={getHeaderTitle(options, route.name)}
+            right={
+              <Appbar.Action
+                icon="cog-outline"
+                accessibilityLabel="Open settings"
+                onPress={() => navigation.getParent()?.navigate('Settings')}
+              />
+            }
+          />
         ),
       }}
       tabBar={(props) => <HomeTabBar {...props} />}
@@ -119,10 +136,20 @@ function HomeTabsLayout() {
         name="Home"
         component={Home}
         options={{
-          title: 'Feed',
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="home" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Todo"
+        component={Todo}
+        options={{
+          title: 'To-do',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
-              name="newspaper"
+              name="checkbox-marked-circle-outline"
               color={color}
               size={size}
             />
@@ -130,11 +157,30 @@ function HomeTabsLayout() {
         }}
       />
       <Tab.Screen
-        name="Updates"
-        component={Updates}
+        name="Calendar"
+        component={Calendar}
         options={{
+          title: 'Calendar',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="bell" color={color} size={size} />
+            <MaterialCommunityIcons
+              name="calendar-month-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Subjects"
+        component={Subjects}
+        options={{
+          title: 'Subjects',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="book-open-variant"
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
@@ -148,57 +194,120 @@ function HomeTabsLayout() {
  */
 function HomeRailContent(props: DrawerContentComponentProps) {
   const activeRoute = props.state.routeNames[props.state.index];
+  const insets = useSafeAreaInsets();
   const { navigation } = props;
 
+  // A collapsed item is exactly as wide as the rail, so only the left safe area
+  // is kept here; the scroll view's own spacing would push the item out of view.
+  const railStyle = { paddingStart: insets.left, paddingEnd: 0 };
+
   return (
-    <DrawerContentScrollView
-      {...props}
-      contentContainerStyle={styles.railContent}
-    >
+    <DrawerContentScrollView {...props} contentContainerStyle={railStyle}>
       <PaperDrawer.CollapsedItem
-        label="Feed"
-        focusedIcon="newspaper"
-        unfocusedIcon="newspaper-variant-outline"
+        label="Home"
+        focusedIcon="home"
+        unfocusedIcon="home-outline"
         active={activeRoute === 'Home'}
         onPress={() => navigation.navigate('Home')}
       />
       <PaperDrawer.CollapsedItem
-        label="Updates"
-        focusedIcon="bell"
-        unfocusedIcon="bell-outline"
-        active={activeRoute === 'Updates'}
-        onPress={() => navigation.navigate('Updates')}
+        label="To-do"
+        focusedIcon="checkbox-marked-circle"
+        unfocusedIcon="checkbox-marked-circle-outline"
+        active={activeRoute === 'Todo'}
+        onPress={() => navigation.navigate('Todo')}
+      />
+      <PaperDrawer.CollapsedItem
+        label="Calendar"
+        focusedIcon="calendar-month"
+        unfocusedIcon="calendar-month-outline"
+        active={activeRoute === 'Calendar'}
+        onPress={() => navigation.navigate('Calendar')}
+      />
+      <PaperDrawer.CollapsedItem
+        label="Subjects"
+        focusedIcon="book-open-variant"
+        unfocusedIcon="book-open-page-variant-outline"
+        active={activeRoute === 'Subjects'}
+        onPress={() => navigation.navigate('Subjects')}
       />
     </DrawerContentScrollView>
   );
 }
 
-// A collapsed item is exactly as wide as the rail, so the scroll view's default
-// horizontal padding would push it past the rail's edge.
-const styles = StyleSheet.create({
-  railContent: {
-    paddingStart: 0,
-    paddingEnd: 0,
-  },
-});
-
 /** Drawer.CollapsedItem's own width, which is also MD3's navigation rail width. */
 const RAIL_WIDTH = 80;
 
+/**
+ * The screens beside the rail already start past the left inset, so their header
+ * must not pad that side again. Paper's Appbar folds both horizontal insets into
+ * one padding, so it is re-applied here as the right inset only.
+ */
+function RailAppbarHeader({
+  title,
+  right,
+}: {
+  title?: ReactNode;
+  right?: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <SafeAreaInsetsContext.Provider
+      value={{ top: insets.top, bottom: insets.bottom, left: 0, right: 0 }}
+    >
+      <AppbarHeader
+        title={title}
+        right={right}
+        style={{ paddingRight: insets.right }}
+      />
+    </SafeAreaInsetsContext.Provider>
+  );
+}
+
 function HomeRailLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Drawer.Navigator
       drawerContent={(props) => <HomeRailContent {...props} />}
       screenOptions={{
         drawerType: 'permanent',
-        drawerStyle: { width: RAIL_WIDTH },
-        header: ({ route, options }) => (
-          <AppbarHeader title={getHeaderTitle(options, route.name)} />
+        // The rail keeps its 80dp of usable width and the left safe area sits
+        // beside it, so the items clear a landscape notch instead of the rail
+        // shrinking under it.
+        drawerStyle: {
+          width: RAIL_WIDTH + insets.left,
+          // A permanent drawer draws a hairline divider; MD3's rail has none.
+          borderLeftWidth: 0,
+          borderRightWidth: 0,
+        },
+        header: ({ route, options, navigation }) => (
+          <RailAppbarHeader
+            title={getHeaderTitle(options, route.name)}
+            right={
+              <Appbar.Action
+                icon="cog-outline"
+                accessibilityLabel="Open settings"
+                onPress={() => navigation.getParent()?.navigate('Settings')}
+              />
+            }
+          />
         ),
       }}
     >
-      <Drawer.Screen name="Home" component={Home} options={{ title: 'Feed' }} />
-      <Drawer.Screen name="Updates" component={Updates} options={{ title: 'Updates' }} />
+      <Drawer.Screen name="Home" component={Home} options={{ title: 'Home' }} />
+      <Drawer.Screen name="Todo" component={Todo} options={{ title: 'To-do' }} />
+      <Drawer.Screen
+        name="Calendar"
+        component={Calendar}
+        options={{ title: 'Calendar' }}
+      />
+      <Drawer.Screen
+        name="Subjects"
+        component={Subjects}
+        options={{ title: 'Subjects' }}
+      />
     </Drawer.Navigator>
   );
 }
@@ -231,19 +340,30 @@ const AppStack = createNativeStackNavigator({
     HomeTabs: createNativeStackScreen({
       screen: HomeNavigation,
       // The tabs/drawer pair is rendered dynamically, so React Navigation can't
-      // discover its routes from the tree. Declaring them here keeps the Feed
-      // and Updates addressable by URL; the empty path keeps the Feed at "/".
+      // discover its routes from the tree. Declaring them here keeps every
+      // destination addressable by URL; the empty path keeps Home at "/".
       linking: {
         path: '',
         initialRouteName: 'Home',
         screens: {
           Home: 'home',
-          Updates: 'updates',
+          Todo: 'todo',
+          Calendar: 'calendar',
+          Subjects: 'subjects',
         },
       },
       options: {
         title: 'Home',
         headerShown: false,
+      },
+    }),
+    // The focus timer hides the tabs and header so nothing competes with the
+    // countdown; it is opened from the Home screen's timer card.
+    Focus: createNativeStackScreen({
+      screen: Focus,
+      options: {
+        headerShown: false,
+        presentation: 'fullScreenModal',
       },
     }),
     Profile: createNativeStackScreen({
