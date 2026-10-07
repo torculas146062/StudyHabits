@@ -50,3 +50,22 @@ export function setProgress(
 
   return completed % POMODOROS_PER_LONG_BREAK;
 }
+
+/**
+ * How much of the current focus block has elapsed, in minutes (fractional).
+ * Breaks contribute nothing, and an untouched block contributes zero, so this
+ * can be added to logged minutes to show a goal filling live while running.
+ */
+export function liveFocusMinutes(
+  phase: TimerPhase,
+  focusMinutes: number,
+  secondsLeft: number
+): number {
+  if (phase !== 'focus') {
+    return 0;
+  }
+
+  const elapsed = phaseMinutes(phase, focusMinutes) * 60 - secondsLeft;
+
+  return Math.max(0, elapsed / 60);
+}
