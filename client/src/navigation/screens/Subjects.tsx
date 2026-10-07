@@ -1,3 +1,4 @@
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import {
@@ -17,13 +18,16 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { SubjectAvatar } from '../../components/SubjectAvatar';
 import { SubjectDialog } from '../../components/SubjectDialog';
 import { useStudy } from '../../context/StudyContext';
-import { WEEKDAY_LABELS, formatShortDay, minutesLabel } from '../../study/date';
-import { recentSessions, subjectTotalMinutes } from '../../study/selectors';
+import type { HomeParamList } from '../../navigation/homeParamList';
+import { WEEKDAY_LABELS, formatShortDay, minutesLabel, todayKey } from '../../study/date';
+import { recentSessions, subjectMinutesOn, subjectTotalMinutes } from '../../study/selectors';
+import { liveFocusMinutes } from '../../study/timer';
 import type { Habit, Subject } from '../../study/types';
 
 export function Subjects() {
   const theme = useTheme();
-  const { data, removeSubject, removeHabit } = useStudy();
+  const navigation = useNavigation<NavigationProp<HomeParamList>>();
+  const { data, removeSubject, removeHabit, setTimerSubject, timer } = useStudy();
   const [subjectDialog, setSubjectDialog] = useState<{
     open: boolean;
     subject?: Subject;
@@ -63,6 +67,18 @@ export function Subjects() {
             (habit) => habit.subjectId === subject.id
           );
           const total = subjectTotalMinutes(data.sessions, subject.id);
+          const todayMinutes = subjectMinutesOn(
+            data.sessions,
+            subject.id,
+            todayKey()
+          );
+          // Elapsed time in the running focus block counts toward the goal
+          // live; it is banked as a session when the block finishes.
+          const liveMinutes =
+            timer.subjectId === subject.id
+              ? liveFocusMinutes(timer.phase, timer.minutes, timer.secondsLeft)
+              : 0;
+          const goalMinutes = todayMinutes + liveMinutes;
           const recent = recentSessions(data.sessions, subject.id);
 
           return (
@@ -92,7 +108,8 @@ export function Subjects() {
                 </View>
 
                 <Text variant="labelLarge" style={muted}>
-                  Daily goal · {subject.goalMinutes} min
+                  Daily goal · {minutesLabel(Math.floor(goalMinutes))} of{' '}
+                  {minutesLabel(subject.goalMinutes)}
                 </Text>
                 {/* Paper sizes ProgressBar's wrapper to 100% height on web, so
                     the slot pins it to the bar's own height. */}
@@ -100,12 +117,24 @@ export function Subjects() {
                   <ProgressBar
                     progress={
                       subject.goalMinutes
-                        ? Math.min(1, total / subject.goalMinutes)
+                        ? Math.min(1, goalMinutes / subject.goalMinutes)
                         : 0
                     }
                     style={styles.bar}
                   />
                 </View>
+
+                <Button
+                  mode="contained-tonal"
+                  icon="timer-outline"
+                  accessibilityLabel={`Start focusing on ${subject.name}`}
+                  onPress={() => {
+                    setTimerSubject(subject.id);
+                    navigation.getParent()?.navigate('Focus');
+                  }}
+                >
+                  Start focus
+                </Button>
 
                 <Divider style={styles.divider} />
 
