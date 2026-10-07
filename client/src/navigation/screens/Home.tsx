@@ -2,17 +2,17 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import {
+  Avatar,
   Card,
   Divider,
   Icon,
-  IconButton,
+  Menu,
   Text,
   TouchableRipple,
   useTheme,
 } from 'react-native-paper';
 
 import { EmptyState } from '../../components/EmptyState';
-import { FocusTimerCard } from '../../components/FocusTimerCard';
 import { HabitList } from '../../components/HabitList';
 import { MetricCard } from '../../components/MetricCard';
 import { SectionHeader } from '../../components/SectionHeader';
@@ -42,20 +42,28 @@ import {
   subjectMinutesOn,
   weeklyMinutes,
 } from '../../study/selectors';
+import { liveFocusMinutes } from '../../study/timer';
 
 export function Home() {
   const theme = useTheme();
   const navigation = useNavigation<NavigationProp<HomeParamList>>();
-  const { user } = useAuth();
-  const { data } = useStudy();
+  const { user, signOut } = useAuth();
+  const { data, timer } = useStudy();
   const [subjectDialog, setSubjectDialog] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   const date = todayKey();
   const planned = habitsOn(data, date);
   const completed = completedHabitCount(data, date);
-  const minutes = minutesOn(data.sessions, date);
+  // Elapsed time in the running focus block shows live; banked on finish.
+  const liveMinutes = liveFocusMinutes(
+    timer.phase,
+    timer.minutes,
+    timer.secondsLeft
+  );
+  const minutes = minutesOn(data.sessions, date) + liveMinutes;
   const streak = streakLength(studiedDates(data.sessions));
-  const weekMinutes = weeklyMinutes(data.sessions, date);
+  const weekMinutes = weeklyMinutes(data.sessions, date) + liveMinutes;
   const goalProgress = Math.min(
     100,
     Math.round((weekMinutes / WEEKLY_GOAL_MINUTES) * 100)
@@ -78,14 +86,31 @@ export function Home() {
             A little structure goes a long way.
           </Text>
         </View>
-        <IconButton
-          icon="account-circle"
-          size={32}
-          accessibilityLabel="Open profile"
-          onPress={() =>
-            navigation.getParent()?.navigate('Profile', { user: firstName })
+        <Menu
+          visible={accountMenuOpen}
+          onDismiss={() => setAccountMenuOpen(false)}
+          anchor={
+            <TouchableRipple
+              accessibilityLabel="Open account menu"
+              onPress={() => setAccountMenuOpen(true)}
+              style={styles.avatarAnchor}
+            >
+              <Avatar.Text
+                size={40}
+                label={firstName.charAt(0).toUpperCase() || '?'}
+              />
+            </TouchableRipple>
           }
-        />
+        >
+          <Menu.Item
+            leadingIcon="logout"
+            title="Log out"
+            onPress={() => {
+              setAccountMenuOpen(false);
+              signOut();
+            }}
+          />
+        </Menu>
       </View>
 
       <Card mode="contained" style={styles.streak}>
@@ -110,7 +135,7 @@ export function Home() {
         <MetricCard
           icon="clock-outline"
           label="Study time"
-          value={minutesLabel(minutes)}
+          value={minutesLabel(Math.floor(minutes))}
           note="studied today"
         />
         <MetricCard
@@ -147,14 +172,17 @@ export function Home() {
         onAction={() => setSubjectDialog(true)}
       />
       <Card mode="outlined">
-        <Card.Content style={styles.list}>
+        <Card.Content style={styles.subjectList}>
           {data.subjects.length ? (
             data.subjects.map((subject, index) => (
               <SubjectProgressRow
                 key={subject.id}
                 name={subject.name}
                 index={index}
-                minutes={subjectMinutesOn(data.sessions, subject.id, date)}
+                minutes={
+                  subjectMinutesOn(data.sessions, subject.id, date) +
+                  (timer.subjectId === subject.id ? liveMinutes : 0)
+                }
                 goalMinutes={subject.goalMinutes}
               />
             ))
@@ -166,10 +194,6 @@ export function Home() {
           )}
         </Card.Content>
       </Card>
-
-      <FocusTimerCard
-        onPress={() => navigation.getParent()?.navigate('Focus')}
-      />
 
       <SectionHeader title={formatMonth()} hint="Your week at a glance" />
       <Card mode="outlined">
@@ -238,6 +262,9 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  avatarAnchor: {
+    borderRadius: 20,
+  },
   streak: {
     marginTop: -4,
   },
@@ -256,6 +283,10 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: 0,
+  },
+  subjectList: {
+    paddingHorizontal: 0,
+    paddingVertical: 4,
   },
   week: {
     flexDirection: 'row',
