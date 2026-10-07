@@ -10,8 +10,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import {
-  MD3DarkTheme,
-  MD3LightTheme,
   PaperProvider,
   adaptNavigationTheme,
 } from 'react-native-paper';
@@ -23,6 +21,7 @@ import {
 } from './context/ThemeContext';
 import { resetDeepLinkPath } from './navigation/deepLinkPath';
 import { AppNavigation, AuthNavigation } from './navigation';
+import { GreenDarkTheme, GreenLightTheme } from './theme';
 
 Asset.loadAsync([...NavigationAssets]);
 
@@ -38,6 +37,8 @@ const linking = {
 const { LightTheme, DarkTheme } = adaptNavigationTheme({
   reactNavigationLight: NavigationDefaultTheme,
   reactNavigationDark: NavigationDarkTheme,
+  materialLight: GreenLightTheme,
+  materialDark: GreenDarkTheme,
 });
 
 const hideSplash = () => {
@@ -103,7 +104,7 @@ function ThemedNavigation() {
     preference === 'system' ? systemScheme === 'dark' : preference === 'dark';
 
   return (
-    <PaperProvider theme={isDark ? MD3DarkTheme : MD3LightTheme}>
+    <PaperProvider theme={isDark ? GreenDarkTheme : GreenLightTheme}>
       <RootNavigation theme={isDark ? DarkTheme : LightTheme} />
     </PaperProvider>
   );
