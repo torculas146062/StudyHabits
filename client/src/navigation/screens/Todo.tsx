@@ -37,7 +37,16 @@ export function Todo() {
           <Text variant="titleMedium">
             {completed} of {planned.length} habits complete
           </Text>
-          <ProgressBar progress={progress} style={styles.bar} />
+          {/* Paper sizes the ProgressBar wrapper to 100% height on web, so the
+              slot pins it to the bar's own height. The contained card uses the
+              same surfaceVariant tone as the default track, so the track is
+              repainted to outline to stay visible. */}
+          <View style={styles.barSlot}>
+            <ProgressBar
+              progress={progress}
+              style={[styles.bar, { backgroundColor: theme.colors.outline }]}
+            />
+          </View>
           <Text variant="bodySmall" style={muted}>
             Pick one small thing to begin.
           </Text>
@@ -82,6 +91,9 @@ const styles = StyleSheet.create({
   bar: {
     height: 6,
     borderRadius: 3,
+  },
+  barSlot: {
+    height: 6,
   },
   list: {
     paddingHorizontal: 0,

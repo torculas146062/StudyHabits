@@ -22,20 +22,22 @@ export function SubjectProgressRow({
 
   return (
     <View style={styles.row}>
-      <SubjectAvatar name={name} index={index} size={36} />
-      <View style={styles.body}>
-        <Text variant="titleSmall">{name}</Text>
-        <Text
-          variant="bodySmall"
-          style={{ color: theme.colors.onSurfaceVariant }}
-        >
-          {minutes} of {goalMinutes} min today
-        </Text>
-        {/* Paper sizes ProgressBar's wrapper to 100% height on web, so the slot
-            pins it to the bar's own height. */}
-        <View style={styles.barSlot}>
-          <ProgressBar progress={progress} style={styles.bar} />
+      <View style={styles.top}>
+        <SubjectAvatar name={name} index={index} size={40} />
+        <View style={styles.titles}>
+          <Text variant="titleSmall">{name}</Text>
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            {Math.floor(minutes)} of {goalMinutes} min today
+          </Text>
         </View>
+      </View>
+      {/* Paper sizes ProgressBar's wrapper to 100% height on web, so the slot
+          pins it to the bar's own height. */}
+      <View style={styles.barSlot}>
+        <ProgressBar progress={progress} style={styles.bar} />
       </View>
     </View>
   );
@@ -43,14 +45,18 @@ export function SubjectProgressRow({
 
 const styles = StyleSheet.create({
   row: {
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  top: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 10,
   },
-  body: {
+  titles: {
     flex: 1,
-    gap: 4,
+    gap: 2,
   },
   bar: {
     height: 6,
