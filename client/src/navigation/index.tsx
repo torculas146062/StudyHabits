@@ -18,7 +18,7 @@ import {
   createNativeStackNavigator,
   createNativeStackScreen,
 } from '@react-navigation/native-stack';
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   useWindowDimensions,
   type StyleProp,
@@ -39,7 +39,6 @@ import { Focus } from './screens/Focus';
 import { Home } from './screens/Home';
 import { Login } from './screens/Login';
 import { NotFound } from './screens/NotFound';
-import { Profile } from './screens/Profile';
 import { Settings } from './screens/Settings';
 import { SignUp } from './screens/SignUp';
 import { Subjects } from './screens/Subjects';
@@ -112,9 +111,34 @@ function HomeTabBar({
   );
 }
 
-function HomeTabsLayout() {
+type ActiveRoute = {
+  name: keyof HomeParamList;
+  params?: { date?: string };
+};
+
+function HomeTabsLayout({
+  initialRoute,
+  onRouteChange,
+}: {
+  initialRoute: ActiveRoute;
+  onRouteChange: (route: ActiveRoute) => void;
+}) {
   return (
     <Tab.Navigator
+      initialRouteName={initialRoute.name}
+      screenListeners={{
+        state: (event) => {
+          const state = event.data.state;
+
+          if (state) {
+            const route = state.routes[state.index];
+            onRouteChange({
+              name: route.name as keyof HomeParamList,
+              params: route.params as ActiveRoute['params'],
+            });
+          }
+        },
+      }}
       screenOptions={{
         animation: 'shift',
         header: ({ route, options, navigation }) => (
@@ -159,6 +183,9 @@ function HomeTabsLayout() {
       <Tab.Screen
         name="Calendar"
         component={Calendar}
+        initialParams={
+          initialRoute.name === 'Calendar' ? initialRoute.params : undefined
+        }
         options={{
           title: 'Calendar',
           tabBarIcon: ({ color, size }) => (
@@ -265,11 +292,31 @@ function RailAppbarHeader({
   );
 }
 
-function HomeRailLayout() {
+function HomeRailLayout({
+  initialRoute,
+  onRouteChange,
+}: {
+  initialRoute: ActiveRoute;
+  onRouteChange: (route: ActiveRoute) => void;
+}) {
   const insets = useSafeAreaInsets();
 
   return (
     <Drawer.Navigator
+      initialRouteName={initialRoute.name}
+      screenListeners={{
+        state: (event) => {
+          const state = event.data.state;
+
+          if (state) {
+            const route = state.routes[state.index];
+            onRouteChange({
+              name: route.name as keyof HomeParamList,
+              params: route.params as ActiveRoute['params'],
+            });
+          }
+        },
+      }}
       drawerContent={(props) => <HomeRailContent {...props} />}
       screenOptions={{
         drawerType: 'permanent',
@@ -301,6 +348,9 @@ function HomeRailLayout() {
       <Drawer.Screen
         name="Calendar"
         component={Calendar}
+        initialParams={
+          initialRoute.name === 'Calendar' ? initialRoute.params : undefined
+        }
         options={{ title: 'Calendar' }}
       />
       <Drawer.Screen
@@ -315,15 +365,35 @@ function HomeRailLayout() {
 /**
  * Landscape shows a permanent icon rail; portrait keeps the bottom bar. Reading
  * the window dimensions means rotating or resizing adapts without a restart.
+ * The tabs and the rail are separate navigators, so the active route is kept
+ * here and handed to whichever mounts — otherwise rotating always lands back
+ * on Home.
  */
 function HomeNavigation() {
   const { width, height } = useWindowDimensions();
+  const [activeRoute, setActiveRoute] = useState<ActiveRoute>({
+    name: 'Home',
+  });
+  const handleRouteChange = useCallback(
+    (route: ActiveRoute) => setActiveRoute(route),
+    []
+  );
 
   if (width > height) {
-    return <HomeRailLayout />;
+    return (
+      <HomeRailLayout
+        initialRoute={activeRoute}
+        onRouteChange={handleRouteChange}
+      />
+    );
   }
 
-  return <HomeTabsLayout />;
+  return (
+    <HomeTabsLayout
+      initialRoute={activeRoute}
+      onRouteChange={handleRouteChange}
+    />
+  );
 }
 
 const AppStack = createNativeStackNavigator({
@@ -358,24 +428,12 @@ const AppStack = createNativeStackNavigator({
       },
     }),
     // The focus timer hides the tabs and header so nothing competes with the
-    // countdown; it is opened from the Home screen's timer card.
+    // countdown; it is opened from a subject's Start focus button.
     Focus: createNativeStackScreen({
       screen: Focus,
       options: {
         headerShown: false,
         presentation: 'fullScreenModal',
-      },
-    }),
-    Profile: createNativeStackScreen({
-      screen: Profile,
-      linking: {
-        path: ':user(@[a-zA-Z0-9-_]+)',
-        parse: {
-          user: (value) => value.replace(/^@/, ''),
-        },
-        stringify: {
-          user: (value) => `@${value}`,
-        },
       },
     }),
     Settings: createNativeStackScreen({
