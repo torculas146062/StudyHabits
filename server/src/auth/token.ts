@@ -39,3 +39,25 @@ export function signAuthToken(payload: AuthTokenPayload): string {
       DEFAULT_EXPIRES_IN) as jwt.SignOptions['expiresIn'],
   });
 }
+
+/**
+ * Verifies a bearer token and returns its payload. Throws when the token is
+ * malformed, expired, or signed with another secret.
+ */
+export function verifyAuthToken(token: string): AuthTokenPayload {
+  const payload = jwt.verify(token, getSecret(), {
+    algorithms: [JWT_ALGORITHM],
+  });
+
+  if (typeof payload !== 'object' || payload === null) {
+    throw new Error('Token payload is not an object');
+  }
+
+  const { sub, email } = payload as jwt.JwtPayload;
+
+  if (typeof sub !== 'string' || typeof email !== 'string') {
+    throw new Error('Token payload is missing claims');
+  }
+
+  return { sub, email };
+}
