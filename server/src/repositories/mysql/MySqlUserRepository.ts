@@ -64,4 +64,13 @@ export class MySqlUserRepository implements IUserRepository {
 
     return rows.length > 0 ? toUser(rows[0]) : null;
   }
+
+  async deleteById(id: number): Promise<boolean> {
+    const [result] = await this.pool.execute<ResultSetHeader>(
+      'DELETE FROM users WHERE id = ?',
+      [id]
+    );
+
+    return result.affectedRows > 0;
+  }
 }

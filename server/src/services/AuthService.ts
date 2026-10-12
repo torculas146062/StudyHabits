@@ -65,6 +65,11 @@ export class AuthService {
 
     return user && matches ? issue(user) : null;
   }
+
+  /** Deletes the account and everything the database holds for it. */
+  async deleteAccount(userId: number): Promise<boolean> {
+    return this.users.deleteById(userId);
+  }
 }
 
 function normalizeEmail(email: string): string {

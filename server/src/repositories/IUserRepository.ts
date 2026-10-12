@@ -27,4 +27,7 @@ export interface IUserRepository {
   create(user: NewUser): Promise<User>;
 
   findByEmail(email: string): Promise<User | null>;
+
+  /** Removes a user and, through foreign keys, their stored data. */
+  deleteById(id: number): Promise<boolean>;
 }
