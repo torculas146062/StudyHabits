@@ -30,7 +30,8 @@
           "image": "./assets/splash-icon.png"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ]
   }
 }
