@@ -1,13 +1,17 @@
 import cors from 'cors';
 import express, { Express, NextFunction, Request, Response } from 'express';
 import { IHealthRepository } from './repositories/IHealthRepository';
+import { IStudyRepository } from './repositories/IStudyRepository';
+import { createAccountRouter } from './routes/account';
 import { createAuthRouter } from './routes/auth';
 import { createHealthRouter } from './routes/health';
+import { createStudyRouter } from './routes/study';
 import { AuthService } from './services/AuthService';
 
 export type AppDependencies = {
   healthRepository: IHealthRepository;
   authService: AuthService;
+  studyRepository: IStudyRepository;
 };
 
 /**
@@ -26,7 +30,7 @@ function getCorsOptions() {
 
   return {
     origin: allowedOrigins.length > 0 ? allowedOrigins : true,
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   };
 }
@@ -34,14 +38,18 @@ function getCorsOptions() {
 export function createApp({
   healthRepository,
   authService,
+  studyRepository,
 }: AppDependencies): Express {
   const app = express();
 
   app.use(cors(getCorsOptions()));
-  app.use(express.json());
+  // Matches the plan size limit validated in the study route.
+  app.use(express.json({ limit: '512kb' }));
 
   app.use('/health', createHealthRouter(healthRepository));
   app.use('/auth', createAuthRouter(authService));
+  app.use('/account', createAccountRouter(authService));
+  app.use('/study', createStudyRouter(studyRepository));
 
   // 404 handler
   app.use((_req: Request, res: Response) => {

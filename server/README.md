@@ -7,18 +7,23 @@ API server built with **Node.js**, **TypeScript**, **Express**, and **mysql2**.
 ```
 src/
 ├── auth/
-│   └── token.ts                     # JWT signing + secret validation
+│   ├── requireAuth.ts                # Bearer-token middleware for protected routes
+│   └── token.ts                     # JWT signing/verification + secret validation
 ├── config/
 │   └── db.ts                        # mysql2 connection pool (MySQL-specific)
 ├── repositories/
 │   ├── IHealthRepository.ts         # IHealthRepository interface (port)
+│   ├── IStudyRepository.ts          # IStudyRepository interface (port)
 │   ├── IUserRepository.ts           # IUserRepository interface (port)
 │   └── mysql/
 │       ├── MySqlHealthRepository.ts # MySQL implementation (owns its SQL)
+│       ├── MySqlStudyRepository.ts  # MySQL implementation (owns its SQL)
 │       └── MySqlUserRepository.ts   # MySQL implementation (owns its SQL)
 ├── routes/
+│   ├── account.ts         # Authenticated account deletion
 │   ├── auth.ts            # Sign-up / log-in endpoints
-│   └── health.ts          # Health check endpoint
+│   ├── health.ts          # Health check endpoint
+│   └── study.ts           # Authenticated study-plan sync endpoints
 ├── scripts/
 │   └── seed.ts            # Applies db/seed.sql
 ├── services/
@@ -89,7 +94,7 @@ routes, app setup, and callers stay unchanged.
 | Command         | Description                                              |
 | --------------- | -------------------------------------------------------- |
 | `npm run dev`   | Start with hot-reload (tsx)                              |
-| `npm run db:seed` | Apply `db/seed.sql` (creates the database and `users` table) |
+| `npm run db:seed` | Apply `db/seed.sql` (creates the database, `users` and `study_plans`) |
 | `npm run build` | Compile TypeScript to `dist/`                            |
 | `npm start`     | Run the compiled build                                   |
 | `npm run lint`  | Type-check without emitting (`tsc --noEmit`)             |
@@ -131,6 +136,47 @@ Verifies credentials and returns an auth token.
 Responds `200` with the same body shape as `/auth/register`.
 Errors: `400` when input is invalid, `401` for an unknown email **or** a wrong password.
 
+### `GET /study`
+
+Returns the signed-in user's synced plan. Requires
+`Authorization: Bearer <token>`.
+
+```json
+{ "data": { "subjects": [], "tasks": [], "sessions": [], "events": [], "restDays": [] }, "revision": 3, "updatedAt": "2026-10-21T00:00:00.000Z" }
+```
+
+An account that has never synced returns `{ "data": null, "revision": 0, "updatedAt": null }`.
+
+### `PUT /study`
+
+Replaces the whole plan. Requires `Authorization: Bearer <token>`.
+
+```json
+{ "data": { "subjects": [], "tasks": [], "sessions": [], "events": [], "restDays": [] }, "baseRevision": 3 }
+```
+
+`baseRevision` is the revision the client's edit was based on. Responds `200`
+with the saved plan (and its new `revision`).
+
+Responds `409` when another device saved first; the body carries `remote` with
+the current plan so the client can compare timestamps and retry:
+
+```json
+{ "error": "The study plan changed on another device.", "remote": { "data": {}, "revision": 4, "updatedAt": "…" } }
+```
+
+Errors: `400` for an invalid payload (or one over 512 KB), `401` for a missing or
+invalid token.
+
+### `DELETE /account`
+
+Deletes the signed-in user and all of their stored data. Requires
+`Authorization: Bearer <token>`.
+
+Responds `204` with no body. The `study_plans` row is removed by the
+`ON DELETE CASCADE` foreign key. Responds `404` when the account is already gone,
+and `401` for a missing or invalid token.
+
 ## CORS
 
 Browser clients (the web build) run on a different origin to the API, so
@@ -146,8 +192,8 @@ CORS_ORIGINS=http://localhost:8081,https://app.example.com
 
 Requests from an origin that isn't listed come back without the
 `Access-Control-Allow-Origin` header, so the browser blocks them. Allowed
-methods are `GET`, `POST` and `OPTIONS`, and the accepted request headers are
-`Content-Type` and `Authorization`.
+methods are `GET`, `POST`, `PUT`, `DELETE` and `OPTIONS`, and the accepted
+request headers are `Content-Type` and `Authorization`.
 
 ## Security
 
@@ -164,6 +210,10 @@ methods are `GET`, `POST` and `OPTIONS`, and the accepted request headers are
   different casing.
 - `JWT_SECRET` has no default — the server refuses to start unless it is set to at least
   32 characters.
+- `/study` requires a valid bearer token. The token subject is used as the row owner,
+  so one account can never read or overwrite another's plan.
+- Study-plan writes use an incrementing revision and a conditional `UPDATE`, so a save
+  based on an outdated revision is rejected instead of overwriting newer data.
 
 Not handled here, but needed before production:
 
@@ -172,5 +222,5 @@ Not handled here, but needed before production:
   limiting sees the proxy's IP for every request.
 - Restrict CORS to the client's origin (see `CORS_ORIGINS` above) and add security
   headers (e.g. `helmet`).
-- Signed tokens are issued on login/registration; protecting routes with them
-  (verification middleware) comes with the first authenticated endpoint.
+- Rate limit `/study` writes if plan sizes or traffic grow beyond what a single user
+  can produce.
