@@ -1,4 +1,4 @@
-import { ApiError, apiPost } from './client';
+import { ApiError, apiPost, apiRequest } from './client';
 
 export type AuthUser = {
   id: number;
@@ -26,6 +26,23 @@ export function signUp(
   password: string
 ): Promise<AuthResponse> {
   return postAuth('/auth/register', { name, email, password });
+}
+
+/**
+ * Permanently deletes the signed-in account and its synced plan on the server.
+ * A 404 means it was already deleted elsewhere, which callers can treat as done.
+ */
+export async function deleteAccount(token: string): Promise<void> {
+  const response = await apiRequest('/account', {
+    method: 'DELETE',
+    token,
+  });
+
+  if (response.ok || response.status === 404) {
+    return;
+  }
+
+  throw new ApiError('Could not delete the account.', response.status);
 }
 
 async function postAuth(

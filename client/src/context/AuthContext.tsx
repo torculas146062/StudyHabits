@@ -9,10 +9,12 @@ import {
 import type { ReactNode } from 'react';
 
 import {
+  deleteAccount as deleteAccountRequest,
   signIn as signInRequest,
   signUp as signUpRequest,
   type AuthUser,
 } from '../api/auth';
+import { clearLocalAccountData } from '../storage/account';
 import { clearSession, loadSession, saveSession } from '../storage/session';
 
 type AuthContextValue = {
@@ -23,6 +25,11 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /**
+   * Deletes the account on the server, then removes its local plan and session.
+   * Throws when the server cannot be reached, leaving the account untouched.
+   */
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -90,9 +97,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    if (!token || !user) {
+      throw new Error('You need to be signed in to delete your account.');
+    }
+
+    // Delete remotely first: if the request fails, the local plan and session
+    // are left intact and the user can try again.
+    await deleteAccountRequest(token);
+
+    // The account is gone, so local cleanup is best-effort.
+    await clearLocalAccountData(user.id).catch(() => undefined);
+
+    setToken(null);
+    setUser(null);
+
+    try {
+      await clearSession();
+    } catch {
+      // Ignore: the deleted account can no longer be used even if a stale
+      // session remains on disk.
+    }
+  }, [token, user]);
+
   const value = useMemo(
-    () => ({ user, token, isRestoring, signIn, signUp, signOut }),
-    [user, token, isRestoring, signIn, signUp, signOut]
+    () => ({
+      user,
+      token,
+      isRestoring,
+      signIn,
+      signUp,
+      signOut,
+      deleteAccount,
+    }),
+    [user, token, isRestoring, signIn, signUp, signOut, deleteAccount]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

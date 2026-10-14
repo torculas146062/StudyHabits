@@ -40,15 +40,45 @@ export function getApiBaseUrl(): string {
 }
 
 export async function apiPost(path: string, body: unknown): Promise<Response> {
+  return apiRequest(path, { method: 'POST', body });
+}
+
+type ApiRequestOptions = {
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  body?: unknown;
+  /** Bearer token for routes that act on the signed-in user's data. */
+  token?: string;
+  timeoutMs?: number;
+};
+
+const DEFAULT_TIMEOUT_MS = 10_000;
+
+/**
+ * Sends a request and treats a network failure or timeout as an `ApiError`, so
+ * callers can tell "offline" apart from an HTTP error response.
+ */
+export async function apiRequest(
+  path: string,
+  { method, body, token, timeoutMs = DEFAULT_TIMEOUT_MS }: ApiRequestOptions
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     return await fetch(`${getApiBaseUrl()}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      method,
+      headers: {
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch {
     throw new ApiError(
       `Could not reach the server at ${getApiBaseUrl()}. Make sure it is running and that you are on the same network.`
     );
+  } finally {
+    clearTimeout(timeout);
   }
 }
