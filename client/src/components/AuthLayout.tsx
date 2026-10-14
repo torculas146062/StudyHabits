@@ -34,33 +34,38 @@ export function AuthLayout({ headline, onBack, children }: AuthLayoutProps) {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          {onBack ? (
-            <IconButton
-              icon="arrow-left"
-              mode="contained-tonal"
-              onPress={onBack}
-              accessibilityLabel="Go back"
-              style={styles.back}
-            />
-          ) : null}
+          <View style={styles.column}>
+            {onBack ? (
+              <IconButton
+                icon="arrow-left"
+                mode="contained-tonal"
+                onPress={onBack}
+                accessibilityLabel="Go back"
+                style={styles.back}
+              />
+            ) : null}
 
-          <View style={styles.hero}>
-            <Text
-              variant="labelMedium"
-              style={[styles.overline, { color: theme.colors.primary }]}
-            >
-              A calmer way to keep going
-            </Text>
-            <Text variant="displaySmall">{headline}</Text>
-            <Text
-              variant="bodyLarge"
-              style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
-            >
-              A little structure. A lot more room to grow.
-            </Text>
+            <View style={styles.hero}>
+              <Text
+                variant="labelMedium"
+                style={[styles.overline, { color: theme.colors.primary }]}
+              >
+                A calmer way to keep going
+              </Text>
+              <Text variant="displaySmall">{headline}</Text>
+              <Text
+                variant="bodyLarge"
+                style={[
+                  styles.subtitle,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                A little structure. A lot more room to grow.
+              </Text>
+            </View>
+
+            <View style={styles.form}>{children}</View>
           </View>
-
-          <View style={styles.form}>{children}</View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -77,7 +82,13 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
+  },
+  column: {
+    width: '100%',
+    // Forms stretched across a tablet or a browser window are hard to read.
+    maxWidth: 420,
     gap: 32,
   },
   back: {
