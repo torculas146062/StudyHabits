@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import {
   Button,
   Icon,
@@ -13,6 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useStudy } from '../../context/StudyContext';
+import { usePreferences } from '../../context/PreferencesContext';
+import { DndPromptDialog } from '../../components/DndPromptDialog';
+import { openDoNotDisturbSettings } from '../../notifications/dnd';
 import {
   FOCUS_DURATIONS,
   POMODOROS_PER_LONG_BREAK,
@@ -39,7 +42,53 @@ export function Focus() {
   const navigation = useNavigation();
   const { data, timer, setTimerSubject, setTimerMinutes, toggleTimer } =
     useStudy();
+  const { dndMode, setDndMode } = usePreferences();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dndPromptOpen, setDndPromptOpen] = useState(false);
+
+  const openDndSettings = () => {
+    openDoNotDisturbSettings().catch(() => undefined);
+  };
+
+  const handleTimerPress = () => {
+    if (timer.isRunning) {
+      toggleTimer();
+      return;
+    }
+
+    const startingFocus = timer.phase === 'focus';
+    const freshFocus =
+      timer.secondsLeft >= phaseMinutes(timer.phase, timer.minutes) * 60;
+
+    // Prompt once per fresh focus block, not every time a paused block resumes.
+    // DND is a device setting; there is nothing to prompt for on web.
+    if (startingFocus && freshFocus && Platform.OS !== 'web') {
+      if (dndMode === 'ask') {
+        setDndPromptOpen(true);
+        return;
+      }
+
+      if (dndMode === 'always') {
+        openDndSettings();
+      }
+    }
+
+    toggleTimer();
+  };
+
+  const chooseDnd = (enable: boolean, remember: boolean) => {
+    setDndPromptOpen(false);
+
+    if (remember) {
+      setDndMode(enable ? 'always' : 'never');
+    }
+
+    if (enable) {
+      openDndSettings();
+    }
+
+    toggleTimer();
+  };
 
   const isBreak = timer.phase !== 'focus';
   const subject = data.subjects.find((item) => item.id === timer.subjectId);
@@ -202,7 +251,7 @@ export function Focus() {
         <Button
           mode="contained"
           icon={timer.isRunning ? 'pause' : 'play'}
-          onPress={toggleTimer}
+          onPress={handleTimerPress}
           disabled={!hasSubjects && !isBreak}
           contentStyle={styles.startButton}
           labelStyle={styles.startLabel}
@@ -210,6 +259,12 @@ export function Focus() {
           {action}
         </Button>
       </View>
+
+      <DndPromptDialog
+        visible={dndPromptOpen}
+        onChoose={chooseDnd}
+        onDismiss={() => chooseDnd(false, false)}
+      />
     </SafeAreaView>
   );
 }
@@ -225,6 +280,9 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
@@ -253,6 +311,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   controls: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
     gap: 16,
     paddingHorizontal: 24,
     paddingBottom: 24,

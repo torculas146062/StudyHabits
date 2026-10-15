@@ -7,15 +7,21 @@ type SectionHeaderProps = {
   icon?: string;
   action?: string;
   onAction?: () => void;
+  secondaryIcon?: string;
+  secondaryAction?: string;
+  onSecondaryAction?: () => void;
 };
 
-/** MD3 section heading: title and supporting line, with the action on the end. */
+/** MD3 section heading: title and supporting line, with the actions on the end. */
 export function SectionHeader({
   title,
   hint,
   icon,
   action,
   onAction,
+  secondaryIcon,
+  secondaryAction,
+  onSecondaryAction,
 }: SectionHeaderProps) {
   const theme = useTheme();
 
@@ -32,6 +38,11 @@ export function SectionHeader({
           </Text>
         ) : null}
       </View>
+      {secondaryAction && onSecondaryAction ? (
+        <Button onPress={onSecondaryAction} icon={secondaryIcon} compact>
+          {secondaryAction}
+        </Button>
+      ) : null}
       {action && onAction ? (
         <Button onPress={onAction} icon={icon} compact>
           {action}
@@ -45,11 +56,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 12,
     marginTop: 16,
     marginBottom: 8,
   },
   titles: {
     flex: 1,
+    minWidth: 140,
   },
 });

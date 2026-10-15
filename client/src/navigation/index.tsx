@@ -41,8 +41,9 @@ import { Login } from './screens/Login';
 import { NotFound } from './screens/NotFound';
 import { Settings } from './screens/Settings';
 import { SignUp } from './screens/SignUp';
+import { Stats } from './screens/Stats';
 import { Subjects } from './screens/Subjects';
-import { Todo } from './screens/Todo';
+import { Tasks } from './screens/Tasks';
 
 type AppbarHeaderProps = {
   title?: ReactNode;
@@ -167,10 +168,10 @@ function HomeTabsLayout({
         }}
       />
       <Tab.Screen
-        name="Todo"
-        component={Todo}
+        name="Tasks"
+        component={Tasks}
         options={{
-          title: 'To-do',
+          title: 'Tasks',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
               name="checkbox-marked-circle-outline"
@@ -191,6 +192,20 @@ function HomeTabsLayout({
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
               name="calendar-month-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Stats"
+        component={Stats}
+        options={{
+          title: 'Stats',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="chart-bar"
               color={color}
               size={size}
             />
@@ -238,11 +253,11 @@ function HomeRailContent(props: DrawerContentComponentProps) {
         onPress={() => navigation.navigate('Home')}
       />
       <PaperDrawer.CollapsedItem
-        label="To-do"
+        label="Tasks"
         focusedIcon="checkbox-marked-circle"
         unfocusedIcon="checkbox-marked-circle-outline"
-        active={activeRoute === 'Todo'}
-        onPress={() => navigation.navigate('Todo')}
+        active={activeRoute === 'Tasks'}
+        onPress={() => navigation.navigate('Tasks')}
       />
       <PaperDrawer.CollapsedItem
         label="Calendar"
@@ -250,6 +265,13 @@ function HomeRailContent(props: DrawerContentComponentProps) {
         unfocusedIcon="calendar-month-outline"
         active={activeRoute === 'Calendar'}
         onPress={() => navigation.navigate('Calendar')}
+      />
+      <PaperDrawer.CollapsedItem
+        label="Stats"
+        focusedIcon="chart-bar"
+        unfocusedIcon="chart-bar"
+        active={activeRoute === 'Stats'}
+        onPress={() => navigation.navigate('Stats')}
       />
       <PaperDrawer.CollapsedItem
         label="Subjects"
@@ -344,7 +366,11 @@ function HomeRailLayout({
       }}
     >
       <Drawer.Screen name="Home" component={Home} options={{ title: 'Home' }} />
-      <Drawer.Screen name="Todo" component={Todo} options={{ title: 'To-do' }} />
+      <Drawer.Screen
+        name="Tasks"
+        component={Tasks}
+        options={{ title: 'Tasks' }}
+      />
       <Drawer.Screen
         name="Calendar"
         component={Calendar}
@@ -352,6 +378,11 @@ function HomeRailLayout({
           initialRoute.name === 'Calendar' ? initialRoute.params : undefined
         }
         options={{ title: 'Calendar' }}
+      />
+      <Drawer.Screen
+        name="Stats"
+        component={Stats}
+        options={{ title: 'Stats' }}
       />
       <Drawer.Screen
         name="Subjects"
@@ -417,8 +448,9 @@ const AppStack = createNativeStackNavigator({
         initialRouteName: 'Home',
         screens: {
           Home: 'home',
-          Todo: 'todo',
+          Tasks: 'tasks',
           Calendar: 'calendar',
+          Stats: 'stats',
           Subjects: 'subjects',
         },
       },

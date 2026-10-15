@@ -2,21 +2,21 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Card, ProgressBar, Text, useTheme } from 'react-native-paper';
 
-import { HabitDialog } from '../../components/HabitDialog';
-import { HabitList } from '../../components/HabitList';
+import { TaskDialog } from '../../components/TaskDialog';
+import { TaskList } from '../../components/TaskList';
 import { SectionHeader } from '../../components/SectionHeader';
 import { useStudy } from '../../context/StudyContext';
 import { formatDay, todayKey } from '../../study/date';
-import { completedHabitCount, habitsOn } from '../../study/selectors';
+import { completedTaskCount, tasksOn } from '../../study/selectors';
 
-export function Todo() {
+export function Tasks() {
   const theme = useTheme();
   const { data } = useStudy();
-  const [habitDialog, setHabitDialog] = useState(false);
+  const [taskDialog, setTaskDialog] = useState(false);
 
   const date = todayKey();
-  const planned = habitsOn(data, date);
-  const completed = completedHabitCount(data, date);
+  const planned = tasksOn(data, date);
+  const completed = completedTaskCount(data, date);
   const progress = planned.length ? completed / planned.length : 0;
   const muted = { color: theme.colors.onSurfaceVariant };
 
@@ -35,7 +35,7 @@ export function Todo() {
       <Card mode="contained">
         <Card.Content style={styles.summary}>
           <Text variant="titleMedium">
-            {completed} of {planned.length} habits complete
+            {completed} of {planned.length} tasks complete
           </Text>
           {/* Paper sizes the ProgressBar wrapper to 100% height on web, so the
               slot pins it to the bar's own height. The contained card uses the
@@ -55,22 +55,22 @@ export function Todo() {
 
       <SectionHeader
         title="On today's list"
-        hint={`${planned.length} planned habit${
+        hint={`${planned.length} planned task${
           planned.length === 1 ? '' : 's'
         }`}
         icon="plus"
-        action="Add habit"
-        onAction={() => setHabitDialog(true)}
+        action="Add task"
+        onAction={() => setTaskDialog(true)}
       />
       <Card mode="outlined">
         <Card.Content style={styles.list}>
-          <HabitList date={date} />
+          <TaskList date={date} />
         </Card.Content>
       </Card>
 
-      <HabitDialog
-        visible={habitDialog}
-        onDismiss={() => setHabitDialog(false)}
+      <TaskDialog
+        visible={taskDialog}
+        onDismiss={() => setTaskDialog(false)}
       />
     </ScrollView>
   );
@@ -78,6 +78,10 @@ export function Todo() {
 
 const styles = StyleSheet.create({
   page: {
+    width: '100%',
+    // Keep wide tablet/browser windows from stretching every row edge to edge.
+    maxWidth: 960,
+    alignSelf: 'center',
     gap: 16,
     padding: 16,
     paddingBottom: 32,

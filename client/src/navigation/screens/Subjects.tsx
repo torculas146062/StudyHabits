@@ -13,7 +13,7 @@ import {
 } from 'react-native-paper';
 
 import { EmptyState } from '../../components/EmptyState';
-import { HabitDialog } from '../../components/HabitDialog';
+import { TaskDialog } from '../../components/TaskDialog';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubjectAvatar } from '../../components/SubjectAvatar';
 import { SubjectDialog } from '../../components/SubjectDialog';
@@ -22,19 +22,19 @@ import type { HomeParamList } from '../../navigation/homeParamList';
 import { WEEKDAY_LABELS, formatShortDay, minutesLabel, todayKey } from '../../study/date';
 import { recentSessions, subjectMinutesOn, subjectTotalMinutes } from '../../study/selectors';
 import { liveFocusMinutes } from '../../study/timer';
-import type { Habit, Subject } from '../../study/types';
+import type { Subject, Task } from '../../study/types';
 
 export function Subjects() {
   const theme = useTheme();
   const navigation = useNavigation<NavigationProp<HomeParamList>>();
-  const { data, removeSubject, removeHabit, setTimerSubject, timer } = useStudy();
+  const { data, removeSubject, removeTask, setTimerSubject, timer } = useStudy();
   const [subjectDialog, setSubjectDialog] = useState<{
     open: boolean;
     subject?: Subject;
   }>({ open: false });
-  const [habitDialog, setHabitDialog] = useState<{
+  const [taskDialog, setTaskDialog] = useState<{
     open: boolean;
-    habit?: Habit;
+    task?: Task;
   }>({ open: false });
 
   const muted = { color: theme.colors.onSurfaceVariant };
@@ -63,8 +63,8 @@ export function Subjects() {
 
       {data.subjects.length ? (
         data.subjects.map((subject, index) => {
-          const habits = data.habits.filter(
-            (habit) => habit.subjectId === subject.id
+          const tasks = data.tasks.filter(
+            (task) => task.subjectId === subject.id
           );
           const total = subjectTotalMinutes(data.sessions, subject.id);
           const todayMinutes = subjectMinutesOn(
@@ -89,7 +89,7 @@ export function Subjects() {
                   <View style={styles.headerText}>
                     <Text variant="titleMedium">{subject.name}</Text>
                     <Text variant="bodySmall" style={muted}>
-                      {habits.length} habit{habits.length === 1 ? '' : 's'} ·{' '}
+                      {tasks.length} task{tasks.length === 1 ? '' : 's'} ·{' '}
                       {minutesLabel(total)} studied
                     </Text>
                   </View>
@@ -138,26 +138,34 @@ export function Subjects() {
 
                 <Divider style={styles.divider} />
 
-                {habits.map((habit) => (
+                {tasks.map((task) => (
                   <List.Item
-                    key={habit.id}
-                    title={habit.title}
-                    description={habit.weekdays
-                      .map((weekday) => WEEKDAY_LABELS[weekday])
+                    key={task.id}
+                    title={task.title}
+                    description={[
+                      task.date
+                        ? formatShortDay(task.date)
+                        : task.weekdays
+                            .map((weekday) => WEEKDAY_LABELS[weekday])
+                            .join(' · '),
+                      task.minutes ? `${task.minutes} min` : null,
+                      task.eventId ? 'Exam prep' : null,
+                    ]
+                      .filter(Boolean)
                       .join(' · ')}
                     right={() => (
                       <View style={styles.actions}>
                         <IconButton
                           icon="pencil-outline"
                           size={20}
-                          accessibilityLabel={`Edit ${habit.title}`}
-                          onPress={() => setHabitDialog({ open: true, habit })}
+                          accessibilityLabel={`Edit ${task.title}`}
+                          onPress={() => setTaskDialog({ open: true, task })}
                         />
                         <IconButton
                           icon="delete-outline"
                           size={20}
-                          accessibilityLabel={`Delete ${habit.title}`}
-                          onPress={() => removeHabit(habit.id)}
+                          accessibilityLabel={`Delete ${task.title}`}
+                          onPress={() => removeTask(task.id)}
                         />
                       </View>
                     )}
@@ -165,9 +173,9 @@ export function Subjects() {
                 ))}
                 <Button
                   icon="plus"
-                  onPress={() => setHabitDialog({ open: true })}
+                  onPress={() => setTaskDialog({ open: true })}
                 >
-                  Add a habit
+                  Add a task
                 </Button>
 
                 <Divider style={styles.divider} />
@@ -223,10 +231,10 @@ export function Subjects() {
         subject={subjectDialog.subject}
         onDismiss={() => setSubjectDialog({ open: false })}
       />
-      <HabitDialog
-        visible={habitDialog.open}
-        habit={habitDialog.habit}
-        onDismiss={() => setHabitDialog({ open: false })}
+      <TaskDialog
+        visible={taskDialog.open}
+        task={taskDialog.task}
+        onDismiss={() => setTaskDialog({ open: false })}
       />
     </ScrollView>
   );
@@ -234,6 +242,10 @@ export function Subjects() {
 
 const styles = StyleSheet.create({
   page: {
+    width: '100%',
+    // Keep wide tablet/browser windows from stretching every row edge to edge.
+    maxWidth: 960,
+    alignSelf: 'center',
     gap: 16,
     padding: 16,
     paddingBottom: 32,

@@ -13,7 +13,9 @@ import {
   PaperProvider,
   adaptNavigationTheme,
 } from 'react-native-paper';
+import { en, registerTranslation } from 'react-native-paper-dates';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PreferencesProvider } from './context/PreferencesContext';
 import { StudyProvider } from './context/StudyContext';
 import {
   ThemePreferenceProvider,
@@ -21,9 +23,12 @@ import {
 } from './context/ThemeContext';
 import { resetDeepLinkPath } from './navigation/deepLinkPath';
 import { AppNavigation, AuthNavigation } from './navigation';
+import { configureForegroundNotifications } from './notifications/reminders';
 import { GreenDarkTheme, GreenLightTheme } from './theme';
 
 Asset.loadAsync([...NavigationAssets]);
+
+registerTranslation('en', en);
 
 SplashScreen.preventAutoHideAsync();
 
@@ -80,13 +85,19 @@ function RootNavigation({ theme }: { theme: Theme }) {
 }
 
 export function App() {
+  useEffect(() => {
+    configureForegroundNotifications().catch(() => undefined);
+  }, []);
+
   return (
     <ThemePreferenceProvider>
-      <AuthProvider>
-        <StudyProvider>
-          <ThemedNavigation />
-        </StudyProvider>
-      </AuthProvider>
+      <PreferencesProvider>
+        <AuthProvider>
+          <StudyProvider>
+            <ThemedNavigation />
+          </StudyProvider>
+        </AuthProvider>
+      </PreferencesProvider>
     </ThemePreferenceProvider>
   );
 }

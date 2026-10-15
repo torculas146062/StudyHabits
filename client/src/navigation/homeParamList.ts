@@ -5,7 +5,8 @@
  */
 export type HomeParamList = {
   Home: undefined;
-  Todo: undefined;
+  Tasks: undefined;
   Calendar: { date?: string } | undefined;
+  Stats: undefined;
   Subjects: undefined;
 };

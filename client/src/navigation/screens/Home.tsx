@@ -13,8 +13,10 @@ import {
 } from 'react-native-paper';
 
 import { EmptyState } from '../../components/EmptyState';
-import { HabitList } from '../../components/HabitList';
+import { ExamProgressRow } from '../../components/ExamProgressRow';
+import { TaskList } from '../../components/TaskList';
 import { MetricCard } from '../../components/MetricCard';
+import { ReminderList } from '../../components/ReminderList';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubjectDialog } from '../../components/SubjectDialog';
 import { SubjectProgressRow } from '../../components/SubjectProgressRow';
@@ -34,12 +36,14 @@ import {
 } from '../../study/date';
 import {
   WEEKLY_GOAL_MINUTES,
-  completedHabitCount,
-  habitsOn,
+  completedTaskCount,
+  examPreparedMinutes,
   hasStudyOn,
   minutesOn,
   studiedDates,
   subjectMinutesOn,
+  tasksOn,
+  upcomingExams,
   weeklyMinutes,
 } from '../../study/selectors';
 import { liveFocusMinutes } from '../../study/timer';
@@ -53,8 +57,8 @@ export function Home() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   const date = todayKey();
-  const planned = habitsOn(data, date);
-  const completed = completedHabitCount(data, date);
+  const planned = tasksOn(data, date);
+  const completed = completedTaskCount(data, date);
   // Elapsed time in the running focus block shows live; banked on finish.
   const liveMinutes = liveFocusMinutes(
     timer.phase,
@@ -63,6 +67,7 @@ export function Home() {
   );
   const minutes = minutesOn(data.sessions, date) + liveMinutes;
   const streak = streakLength(studiedDates(data.sessions));
+  const exams = upcomingExams(data, date, 3);
   const weekMinutes = weeklyMinutes(data.sessions, date) + liveMinutes;
   const goalProgress = Math.min(
     100,
@@ -142,7 +147,7 @@ export function Home() {
           icon="check-circle-outline"
           label="Completed"
           value={`${completed} / ${planned.length}`}
-          note="habits today"
+          note="tasks today"
         />
         <MetricCard
           icon="target"
@@ -153,14 +158,56 @@ export function Home() {
       </View>
 
       <SectionHeader
-        title="Today's plan"
-        hint={`${planned.length} habit${planned.length === 1 ? '' : 's'} on your schedule`}
-        action="See all"
-        onAction={() => navigation.navigate('Todo')}
+        title="Reminders"
+        hint="Timed tasks and events for today"
+        action="See tasks"
+        onAction={() => navigation.navigate('Tasks')}
       />
       <Card mode="outlined">
         <Card.Content style={styles.list}>
-          <HabitList date={date} />
+          <ReminderList date={date} />
+        </Card.Content>
+      </Card>
+
+      {exams.length ? (
+        <>
+          <SectionHeader
+            title="Exam countdown"
+            hint="Study targets and preparation progress"
+          />
+          <Card mode="outlined">
+            <Card.Content style={styles.list}>
+              {exams.map((exam) => (
+                <ExamProgressRow
+                  key={exam.id}
+                  title={exam.title}
+                  date={exam.date}
+                  subjectName={
+                    data.subjects.find((item) => item.id === exam.subjectId)
+                      ?.name
+                  }
+                  preparedMinutes={examPreparedMinutes(
+                    data.sessions,
+                    exam.id
+                  )}
+                  targetMinutes={exam.targetMinutes}
+                  time={exam.reminderTime}
+                />
+              ))}
+            </Card.Content>
+          </Card>
+        </>
+      ) : null}
+
+      <SectionHeader
+        title="Today's plan"
+        hint={`${planned.length} task${planned.length === 1 ? '' : 's'} on your schedule`}
+        action="See all"
+        onAction={() => navigation.navigate('Tasks')}
+      />
+      <Card mode="outlined">
+        <Card.Content style={styles.list}>
+          <TaskList date={date} />
         </Card.Content>
       </Card>
 
@@ -249,6 +296,10 @@ export function Home() {
 
 const styles = StyleSheet.create({
   page: {
+    width: '100%',
+    // Keep wide tablet/browser windows from stretching every row edge to edge.
+    maxWidth: 960,
+    alignSelf: 'center',
     gap: 16,
     padding: 16,
     paddingBottom: 32,
