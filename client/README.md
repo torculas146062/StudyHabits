@@ -8,6 +8,11 @@ It includes the following:
 - Material Design 3 login/sign-up screens as the app entry point
 - Session-backed auth: token and user persisted with AsyncStorage and shared through React context
 - Material Design 3 Settings screen with a System / Light / Dark theme preference, also persisted
+- Task and event scheduling with optional reminders, plus a Statistics tab with charts
+- Exam planning with generated study tasks and preparation progress
+- Offline-first local storage with per-account cloud sync across devices
+- Account deletion that removes the account, synced plan and local copies
+- Do Not Disturb prompt when a pomodoro focus block starts
 - Web support with [React Native for Web](https://necolas.github.io/react-native-web/)
 - UI components and Material Design 3 theming with [React Native Paper](https://oss.callstack.com/react-native-paper/), kept in sync with React Navigation
 - TypeScript support and configured for React Navigation
@@ -93,8 +98,85 @@ exposes `user`, `token`, `isRestoring`, `signIn`, `signUp` and `signOut`.
 The stored session is restored on launch — a signed-in user skips the sign-in
 screens — and the sign-in stack is used whenever there is no session.
 
+`useAuth()` also exposes `deleteAccount()`. It calls `DELETE /account`, which
+removes the user and their study plan through a cascading foreign key. Only
+after the server confirms does the app clear the local plan, sync bookkeeping
+and session, so a failed request leaves everything intact.
+
 > Native builds reach the API directly. On web the page and the API are on
 > different origins, so the server needs CORS enabled for browser clients.
+
+### Study plan
+
+`StudyProvider` (`src/context/StudyContext.tsx`) owns the plan for the signed-in
+account and persists it under `studyhabits.study.<userId>`. A plan holds:
+
+- **Subjects** with a daily minute goal.
+- **Tasks** — recurring to-dos with the weekdays they run on, or one-off tasks
+  pinned to a date. Both carry an optional `HH:mm` reminder and a planned
+  duration (entered in minutes or hours) that each check-in logs. Tasks were
+  previously called habits; stored plans are migrated on read, including the old
+  `habitId` session link.
+- **Sessions** logged by ticking a task or finishing a focus block. Deleting a
+  task, or a subject/exam that owns tasks, also removes the sessions those tasks
+  logged, so study totals and exam progress revert.
+- **Focus timer tasks** — starting a focus block creates one task per subject per
+  day. Pausing and resuming reuses that task, and each finished pomodoro adds to
+  the same day's session. These are read-only in the task list: they show a
+  *Timer* or *Focused* status instead of tick/skip/undo actions.
+- **Events** — one-off calendar entries with an optional `HH:mm` reminder.
+- **Exams** — events with `kind: 'exam'`, a subject and a study target. Planning
+  one generates dated preparation tasks (`src/study/exams.ts`) spread over the
+  days leading up to it; their sessions count toward the exam's progress.
+- **Rest days**, on which no tasks are scheduled.
+
+### Responsive layout
+
+Screens cap their content to a centred 960 px column so rows do not stretch in
+landscape, on tablets, or in a browser. Dialogs are limited to 480 px, the focus
+controls to 520 px, and the authentication column to 420 px.
+
+The **Stats** tab charts study minutes for the last seven days, today's task
+completion and each subject's share of all study time. The dashboard also shows
+a countdown and preparation progress for upcoming exams.
+
+### Offline use and data sync
+
+The plan is always read from and written to AsyncStorage first, so every feature
+works without a connection. Sync is layered on top:
+
+- `src/api/study.ts` pulls and pushes the whole plan through `GET /study` and
+  `PUT /study`.
+- `src/storage/sync.ts` keeps per-account bookkeeping under
+  `studyhabits.sync.<userId>`: the last server revision, the last successful sync
+  and whether local edits are still pending.
+- `decideSync` (`src/study/sync.ts`) picks a winner when both sides changed:
+  the newest edit by timestamp wins, and the server acts as tie-breaker.
+- `StudyProvider` syncs on load, 1.5 seconds after an edit, when the app returns
+  to the foreground, and from **Settings → Cloud sync → Sync now**. A failed
+  request keeps the edit pending and reports *Offline* instead of losing it.
+
+Uploads carry the revision they were based on. If another device saved first the
+server answers `409`, and the app re-fetches, compares timestamps and either
+adopts the remote plan or retries the upload.
+
+### Reminders and Do Not Disturb
+
+Reminders are local notifications scheduled with `expo-notifications`
+(`src/notifications/reminders.ts`): one weekly notification per task weekday and
+one date-triggered notification per future event. They are opt-in from
+**Settings → Focus and reminders**, which also asks for notification permission.
+Scheduling is unavailable on web, so the app only shows reminders in the UI
+there.
+
+The same section controls the Do Not Disturb prompt. Starting a focus block can
+prompt the user to enable the device's DND setting, with a *Remember my choice*
+checkbox. The preference (`ask` / `always` / `never`) is stored under
+`studyhabits.dnd.mode`; the OS owns the actual setting, so the app only opens
+the matching system screen.
+
+> `expo-notifications` and `expo-intent-launcher` contain native code, so the app
+> needs a development build after installing dependencies.
 
 ## Notes
 
