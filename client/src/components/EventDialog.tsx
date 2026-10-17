@@ -10,22 +10,28 @@ import {
   TouchableRipple,
   useTheme,
 } from 'react-native-paper';
-import { DatePickerModal } from 'react-native-paper-dates';
+import { Calendar } from 'react-native-paper-dates';
 
 import { TimeField } from './TimeField';
-import { AppDialog } from './AppDialog';
+import { AppDialog, DialogBody } from './AppDialog';
 import { useStudy } from '../context/StudyContext';
 import {
   dateKey,
   formatDay,
   fromDateKey,
   isTimeKey,
+  todayKey,
 } from '../study/date';
 import type { StudyEvent, StudyEventKind } from '../study/types';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DEFAULT_REMINDER_TIME = '09:00';
 const MAX_TARGET_HOURS = 1000;
+
+/** Minutes as hours for the input, without float noise like `1.6666666666666667`. */
+function hoursLabel(minutes: number): string {
+  return String(Math.round((minutes / 60) * 100) / 100);
+}
 
 type EventDialogProps = {
   visible: boolean;
@@ -50,6 +56,8 @@ export function EventDialog({
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState(DEFAULT_REMINDER_TIME);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  // The calendar edits a draft, so cancelling leaves the event's date alone.
+  const [draftDate, setDraftDate] = useState(date);
 
   // Load whatever was opened each time the dialog appears.
   useEffect(() => {
@@ -67,14 +75,19 @@ export function EventDialog({
         : data.subjects[0]?.id ?? ''
     );
     setTargetHours(
-      event?.targetMinutes ? String(event.targetMinutes / 60) : ''
+      event?.targetMinutes ? hoursLabel(event.targetMinutes) : ''
     );
     setReminderEnabled(Boolean(event?.reminderTime));
     setReminderTime(event?.reminderTime ?? DEFAULT_REMINDER_TIME);
   }, [data.subjects, date, event, visible]);
 
+  const today = todayKey();
   const isValidDate =
     DATE_PATTERN.test(value) && !Number.isNaN(fromDateKey(value).getTime());
+  // Events are planned for today or later. A stored past date stays allowed
+  // while editing that same event, so older entries remain editable.
+  const dateInPast = isValidDate && value < today;
+  const dateAllowed = isValidDate && (!dateInPast || event?.date === value);
   const reminderValid = !reminderEnabled || isTimeKey(reminderTime);
   const isExam = kind === 'exam';
   const hours = Number(targetHours.replace(',', '.'));
@@ -83,7 +96,7 @@ export function EventDialog({
     (Number.isFinite(hours) && hours > 0 && hours <= MAX_TARGET_HOURS);
   const canSave =
     title.trim().length > 0 &&
-    isValidDate &&
+    dateAllowed &&
     reminderValid &&
     targetValid &&
     (!isExam || subjectId.length > 0);
@@ -128,7 +141,7 @@ export function EventDialog({
             ? 'Plan exam'
             : 'Add event'}
       </Dialog.Title>
-      <Dialog.Content style={styles.content}>
+      <DialogBody>
         <TextInput
           mode="outlined"
           label={isExam ? 'Exam name' : 'Event name'}
@@ -137,7 +150,12 @@ export function EventDialog({
         />
         <TouchableRipple
           borderless
-          onPress={() => setDatePickerOpen(true)}
+          onPress={() => {
+            // The picker never shows past days, so start it on today when the
+            // field currently holds an earlier date.
+            setDraftDate(isValidDate && value >= today ? value : today);
+            setDatePickerOpen(true);
+          }}
           accessibilityLabel="Choose a date"
         >
           <View pointerEvents="none">
@@ -146,7 +164,7 @@ export function EventDialog({
               label="Date"
               value={value}
               editable={false}
-              error={!isValidDate}
+              error={!dateAllowed}
               right={<TextInput.Icon icon="calendar-month-outline" />}
             />
           </View>
@@ -155,22 +173,46 @@ export function EventDialog({
           variant="bodySmall"
           style={{ color: theme.colors.onSurfaceVariant }}
         >
-          {isValidDate ? formatDay(value) : 'Choose a valid date.'}
+          {!isValidDate
+            ? 'Choose a valid date.'
+            : dateInPast && !dateAllowed
+              ? 'Events can only be planned for today or later.'
+              : formatDay(value)}
         </Text>
-        <DatePickerModal
-          locale="en"
-          mode="single"
+        <AppDialog
           visible={datePickerOpen}
-          date={isValidDate ? fromDateKey(value) : new Date()}
           onDismiss={() => setDatePickerOpen(false)}
-          onConfirm={({ date }) => {
-            if (date) {
-              setValue(dateKey(date));
-            }
-
-            setDatePickerOpen(false);
-          }}
-        />
+        >
+          <Dialog.Title>Choose date</Dialog.Title>
+          <DialogBody>
+            {/* The calendar's root is `flex: 1`, which collapses to nothing
+                inside a scroll view unless something bounds the height. */}
+            <View style={styles.calendar}>
+              <Calendar
+                locale="en"
+                mode="single"
+                date={fromDateKey(draftDate)}
+              validRange={{ startDate: fromDateKey(today) }}
+                onChange={({ date: picked }) => {
+                  if (picked) {
+                    setDraftDate(dateKey(picked));
+                  }
+                }}
+              />
+            </View>
+          </DialogBody>
+          <Dialog.Actions>
+            <Button onPress={() => setDatePickerOpen(false)}>Cancel</Button>
+            <Button
+              onPress={() => {
+                setValue(draftDate);
+                setDatePickerOpen(false);
+              }}
+            >
+              Done
+            </Button>
+          </Dialog.Actions>
+        </AppDialog>
         <View style={styles.reminderRow}>
           <View style={styles.reminderText}>
             <Text variant="labelLarge">This is an exam</Text>
@@ -263,7 +305,7 @@ export function EventDialog({
             onChange={setReminderTime}
           />
         ) : null}
-      </Dialog.Content>
+      </DialogBody>
       <Dialog.Actions>
         <Button onPress={onDismiss}>Cancel</Button>
         <Button onPress={save} disabled={!canSave}>
@@ -275,13 +317,15 @@ export function EventDialog({
 }
 
 const styles = StyleSheet.create({
-  content: {
-    gap: 12,
-  },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  calendar: {
+    // Tall enough that the month grid never needs to scroll inside the dialog
+    // (its pager reports ~400px at the default type scale).
+    height: 420,
   },
   reminderRow: {
     flexDirection: 'row',
