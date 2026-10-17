@@ -16,7 +16,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.studyhabits"
+      "package": "com.studyhabits",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE"
+      ],
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,7 +37,24 @@
         }
       ],
       "expo-font",
-      "expo-notifications"
-    ]
+      "expo-notifications",
+      "expo-status-bar",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": [
+              "arm64-v8a"
+            ],
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5ef40384-03f5-4e1f-9c75-3506cd2a69d9"
+      }
+    }
   }
 }
