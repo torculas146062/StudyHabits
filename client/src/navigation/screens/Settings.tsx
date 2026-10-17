@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import {
   Avatar,
   Button,
@@ -13,13 +13,14 @@ import {
   useTheme,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppDialog } from '../../components/AppDialog';
+import { AppDialog, DialogBody } from '../../components/AppDialog';
 import { useAuth } from '../../context/AuthContext';
 import {
   usePreferences,
   type DndMode,
 } from '../../context/PreferencesContext';
 import { useStudy, type StudySyncState } from '../../context/StudyContext';
+import { remindersSupported } from '../../notifications/reminders';
 import {
   useThemePreference,
   type ThemePreference,
@@ -132,15 +133,20 @@ export function Settings() {
           <List.Item
             title="Task and event reminders"
             description={
-              reminderDenied
-                ? 'Notifications are blocked — allow them in device settings'
-                : 'Notify me when a timed task or event is due'
+              !remindersSupported
+                ? Platform.OS === 'web'
+                  ? 'Not available on web'
+                  : 'Requires a development build — unavailable in Expo Go on Android'
+                : reminderDenied
+                  ? 'Notifications are blocked — allow them in device settings'
+                  : 'Notify me when a timed task or event is due'
             }
             left={(props) => <List.Icon {...props} icon="bell-outline" />}
             right={() => (
               <Switch
                 value={remindersEnabled}
                 onValueChange={toggleReminders}
+                disabled={!remindersSupported}
                 accessibilityLabel="Enable task and event reminders"
               />
             )}
@@ -242,7 +248,7 @@ export function Settings() {
       onDismiss={() => setDeleteOpen(false)}
       >
         <Dialog.Title>Delete account?</Dialog.Title>
-        <Dialog.Content style={styles.deleteContent}>
+        <DialogBody>
           <Text variant="bodyMedium">
             This permanently deletes your account and its synced study plan
             from the server, and removes this device's copy. It cannot be
@@ -253,7 +259,7 @@ export function Settings() {
               {deleteError}
             </Text>
           ) : null}
-        </Dialog.Content>
+        </DialogBody>
         <Dialog.Actions>
           <Button
             onPress={() => setDeleteOpen(false)}
@@ -292,8 +298,5 @@ const styles = StyleSheet.create({
   note: {
     paddingHorizontal: 16,
     paddingBottom: 8,
-  },
-  deleteContent: {
-    gap: 12,
   },
 });

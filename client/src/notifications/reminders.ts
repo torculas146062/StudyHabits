@@ -1,3 +1,4 @@
+import { isRunningInExpoGo } from 'expo';
 import { Platform } from 'react-native';
 
 import { isTimeKey, reminderDate } from '../study/date';
@@ -5,8 +6,21 @@ import type { StudyData } from '../study/types';
 
 const REMINDER_CHANNEL_ID = 'study-reminders';
 
-/** expo-notifications has no scheduling support on web. */
-const isSupported = Platform.OS !== 'web';
+/**
+ * Reminders need a build that ships the native module.
+ *
+ * `expo-notifications` has no scheduling support on web. On Android it also
+ * requires its topic-subscription module eagerly (`requireNativeModule` at
+ * module scope, unlike the stub the other platforms get), and Expo Go does not
+ * contain that module — so merely importing the package throws there, taking
+ * local notifications with it. Rather than tripping over that, reminders are
+ * switched off in Expo Go on Android and the UI says why.
+ */
+const isSupported =
+  Platform.OS !== 'web' && !(Platform.OS === 'android' && isRunningInExpoGo());
+
+/** False where reminders cannot work at all, so the UI can explain why. */
+export const remindersSupported = isSupported;
 
 async function loadNotifications() {
   return import('expo-notifications');
