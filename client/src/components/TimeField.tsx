@@ -53,7 +53,6 @@ export function TimeField({ label, value, error, onChange }: TimeFieldProps) {
       <TimePickerModal
         visible={open}
         locale="en"
-        use24HourClock
         hours={parts(value).hours}
         minutes={parts(value).minutes}
         onDismiss={() => setOpen(false)}
