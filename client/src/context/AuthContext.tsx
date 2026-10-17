@@ -72,14 +72,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      startSession(await signInRequest(email, password));
+      // Awaited so a storage failure reaches the caller instead of surfacing as
+      // an unhandled rejection after the screen has already moved on.
+      await startSession(await signInRequest(email, password));
     },
     [startSession]
   );
 
   const signUp = useCallback(
     async (name: string, email: string, password: string) => {
-      startSession(await signUpRequest(name, email, password));
+      await startSession(await signUpRequest(name, email, password));
     },
     [startSession]
   );
