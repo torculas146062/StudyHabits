@@ -52,19 +52,21 @@ export function Home() {
   const theme = useTheme();
   const navigation = useNavigation<NavigationProp<HomeParamList>>();
   const { user, signOut } = useAuth();
-  const { data, timer } = useStudy();
+  const { data, runningTimer } = useStudy();
   const [subjectDialog, setSubjectDialog] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   const date = todayKey();
   const planned = tasksOn(data, date);
   const completed = completedTaskCount(data, date);
-  // Elapsed time in the running focus block shows live; banked on finish.
-  const liveMinutes = liveFocusMinutes(
-    timer.phase,
-    timer.minutes,
-    timer.secondsLeft
-  );
+  // Elapsed time in whichever block is running shows live; banked on finish.
+  const liveMinutes = runningTimer
+    ? liveFocusMinutes(
+        runningTimer.timer.phase,
+        runningTimer.timer.minutes,
+        runningTimer.timer.secondsLeft
+      )
+    : 0;
   const minutes = minutesOn(data.sessions, date) + liveMinutes;
   const streak = streakLength(studiedDates(data.sessions));
   const exams = upcomingExams(data, date, 3);
@@ -228,7 +230,7 @@ export function Home() {
                 index={index}
                 minutes={
                   subjectMinutesOn(data.sessions, subject.id, date) +
-                  (timer.subjectId === subject.id ? liveMinutes : 0)
+                  (runningTimer?.subjectId === subject.id ? liveMinutes : 0)
                 }
                 goalMinutes={subject.goalMinutes}
               />

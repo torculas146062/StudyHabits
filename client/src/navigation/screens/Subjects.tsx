@@ -13,6 +13,7 @@ import {
 } from 'react-native-paper';
 
 import { EmptyState } from '../../components/EmptyState';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { TaskDialog } from '../../components/TaskDialog';
 import { SectionHeader } from '../../components/SectionHeader';
 import { SubjectAvatar } from '../../components/SubjectAvatar';
@@ -27,7 +28,13 @@ import type { Subject, Task } from '../../study/types';
 export function Subjects() {
   const theme = useTheme();
   const navigation = useNavigation<NavigationProp<HomeParamList>>();
-  const { data, removeSubject, removeTask, setTimerSubject, timer } = useStudy();
+  const {
+    data,
+    removeSubject,
+    removeTask,
+    setTimerSubject,
+    runningTimer,
+  } = useStudy();
   const [subjectDialog, setSubjectDialog] = useState<{
     open: boolean;
     subject?: Subject;
@@ -36,6 +43,16 @@ export function Subjects() {
     open: boolean;
     task?: Task;
   }>({ open: false });
+  // Deleting cascades into tasks and logged time, so it asks first.
+  const [confirming, setConfirming] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
+  const closeConfirm = () =>
+    setConfirming((current) => current && { ...current, visible: false });
 
   const muted = { color: theme.colors.onSurfaceVariant };
 
@@ -72,11 +89,15 @@ export function Subjects() {
             subject.id,
             todayKey()
           );
-          // Elapsed time in the running focus block counts toward the goal
-          // live; it is banked as a session when the block finishes.
+          // Elapsed time in a running focus block counts toward the goal live;
+          // it is banked as a session when the block finishes.
           const liveMinutes =
-            timer.subjectId === subject.id
-              ? liveFocusMinutes(timer.phase, timer.minutes, timer.secondsLeft)
+            runningTimer?.subjectId === subject.id
+              ? liveFocusMinutes(
+                  runningTimer.timer.phase,
+                  runningTimer.timer.minutes,
+                  runningTimer.timer.secondsLeft
+                )
               : 0;
           const goalMinutes = todayMinutes + liveMinutes;
           const recent = recentSessions(data.sessions, subject.id);
@@ -103,7 +124,16 @@ export function Subjects() {
                     icon="delete-outline"
                     size={20}
                     accessibilityLabel={`Delete ${subject.name}`}
-                    onPress={() => removeSubject(subject.id)}
+                    onPress={() =>
+                      setConfirming({
+                        visible: true,
+                        title: `Delete ${subject.name}?`,
+                        message:
+                          'Its tasks and the study time they logged are removed too. This cannot be undone.',
+                        confirmLabel: 'Delete subject',
+                        onConfirm: () => removeSubject(subject.id),
+                      })
+                    }
                   />
                 </View>
 
@@ -165,7 +195,16 @@ export function Subjects() {
                           icon="delete-outline"
                           size={20}
                           accessibilityLabel={`Delete ${task.title}`}
-                          onPress={() => removeTask(task.id)}
+                          onPress={() =>
+                            setConfirming({
+                              visible: true,
+                              title: `Delete ${task.title}?`,
+                              message:
+                                'The study time this task logged is removed too. This cannot be undone.',
+                              confirmLabel: 'Delete task',
+                              onConfirm: () => removeTask(task.id),
+                            })
+                          }
                         />
                       </View>
                     )}
@@ -235,6 +274,17 @@ export function Subjects() {
         visible={taskDialog.open}
         task={taskDialog.task}
         onDismiss={() => setTaskDialog({ open: false })}
+      />
+      <ConfirmDialog
+        visible={Boolean(confirming?.visible)}
+        title={confirming?.title ?? ''}
+        message={confirming?.message ?? ''}
+        confirmLabel={confirming?.confirmLabel ?? ''}
+        onCancel={closeConfirm}
+        onConfirm={() => {
+          confirming?.onConfirm();
+          closeConfirm();
+        }}
       />
     </ScrollView>
   );

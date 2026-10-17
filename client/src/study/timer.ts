@@ -8,6 +8,34 @@ export const SHORT_BREAK_MINUTES = 5;
 export const LONG_BREAK_MINUTES = 15;
 export const POMODOROS_PER_LONG_BREAK = 4;
 
+/**
+ * One subject's countdown. Each subject owns its own copy, so leaving the focus
+ * screen and coming back — or working on another subject meanwhile — resumes
+ * where that subject left off.
+ */
+export type FocusTimer = {
+  /** Length of a focus block, in minutes. */
+  minutes: number;
+  secondsLeft: number;
+  isRunning: boolean;
+  phase: TimerPhase;
+  /** Focus blocks finished within the current set. */
+  completedPomodoros: number;
+};
+
+/** An untouched focus block, used for a subject that has no timer yet. */
+export function defaultFocusTimer(
+  minutes: number = FOCUS_DURATIONS[0]
+): FocusTimer {
+  return {
+    minutes,
+    secondsLeft: minutes * 60,
+    isRunning: false,
+    phase: 'focus',
+    completedPomodoros: 0,
+  };
+}
+
 /** Counts a number of seconds down as `MM:SS`. */
 export function formatClock(seconds: number): string {
   const minutes = Math.floor(seconds / 60);

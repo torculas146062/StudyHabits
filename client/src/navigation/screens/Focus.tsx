@@ -1,20 +1,28 @@
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import {
   Button,
+  Dialog,
   Icon,
   IconButton,
-  Menu,
+  RadioButton,
   SegmentedButtons,
   Text,
   useTheme,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useStudy } from '../../context/StudyContext';
-import { usePreferences } from '../../context/PreferencesContext';
+import { AppDialog, DialogBody } from '../../components/AppDialog';
 import { DndPromptDialog } from '../../components/DndPromptDialog';
+import { usePreferences } from '../../context/PreferencesContext';
+import { useStudy } from '../../context/StudyContext';
 import { openDoNotDisturbSettings } from '../../notifications/dnd';
 import {
   FOCUS_DURATIONS,
@@ -40,11 +48,35 @@ const PHASE_TITLES: Record<TimerPhase, string> = {
 export function Focus() {
   const theme = useTheme();
   const navigation = useNavigation();
-  const { data, timer, setTimerSubject, setTimerMinutes, toggleTimer } =
-    useStudy();
+  const {
+    data,
+    timer,
+    setTimerSubject,
+    setTimerMinutes,
+    toggleTimer,
+    resetTimer,
+  } = useStudy();
   const { dndMode, setDndMode } = usePreferences();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [subjectDialogOpen, setSubjectDialogOpen] = useState(false);
+  // The dialog edits a draft so cancelling leaves the timer untouched; closing
+  // it on the tap itself would also let that tap fall through to the button
+  // underneath and reopen it.
+  const [draftSubjectId, setDraftSubjectId] = useState<string | null>(null);
   const [dndPromptOpen, setDndPromptOpen] = useState(false);
+  // Landscape on a phone leaves very little height, so the readout and the
+  // controls sit side by side instead of stacking and being squeezed.
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
+  const closeTimer = () => {
+    // Focus can be the entry route (a reload or deep link straight to /focus),
+    // where there is nothing to pop.
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('HomeTabs');
+    }
+  };
 
   const openDndSettings = () => {
     openDoNotDisturbSettings().catch(() => undefined);
@@ -123,142 +155,187 @@ export function Focus() {
       style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
     >
       <View style={styles.topBar}>
+        {started ? (
+          <IconButton
+            icon="restart"
+            size={24}
+            accessibilityLabel="Reset timer"
+            onPress={resetTimer}
+          />
+        ) : null}
         <IconButton
           icon="close"
           size={24}
           accessibilityLabel="Close focus timer"
-          onPress={() => navigation.goBack()}
+          onPress={closeTimer}
         />
       </View>
 
-      <View style={styles.body}>
-        <View
-          style={[
-            styles.medallion,
-            {
-              backgroundColor: isBreak
-                ? theme.colors.secondaryContainer
-                : theme.colors.tertiaryContainer,
-            },
-          ]}
-        >
-          <Icon
-            source={isBreak ? 'coffee-outline' : 'timer-outline'}
-            size={28}
-            color={
-              isBreak
-                ? theme.colors.onSecondaryContainer
-                : theme.colors.onTertiaryContainer
-            }
-          />
-        </View>
-
-        <Text variant="titleMedium">{PHASE_TITLES[timer.phase]}</Text>
-        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-          {subtitle}
-        </Text>
-
-        <Text variant="displayLarge" style={styles.digits}>
-          {formatClock(timer.secondsLeft)}
-        </Text>
-
-        <View style={styles.round}>
-          {Array.from({ length: POMODOROS_PER_LONG_BREAK }, (_, index) => (
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          isLandscape && styles.contentLandscape,
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.readout, isLandscape && styles.readoutLandscape]}>
+          {isLandscape ? null : (
             <View
-              key={index}
               style={[
-                styles.dot,
+                styles.medallion,
                 {
-                  backgroundColor:
-                    index < done
-                      ? theme.colors.primary
-                      : theme.colors.surfaceVariant,
+                  backgroundColor: isBreak
+                    ? theme.colors.secondaryContainer
+                    : theme.colors.tertiaryContainer,
                 },
               ]}
-            />
-          ))}
+            >
+              <Icon
+                source={isBreak ? 'coffee-outline' : 'timer-outline'}
+                size={28}
+                color={
+                  isBreak
+                    ? theme.colors.onSecondaryContainer
+                    : theme.colors.onTertiaryContainer
+                }
+              />
+            </View>
+          )}
+
+          <Text variant="titleMedium">{PHASE_TITLES[timer.phase]}</Text>
           <Text
-            variant="labelMedium"
+            variant="bodySmall"
             style={{ color: theme.colors.onSurfaceVariant }}
           >
-            {isBreak
-              ? `${done} of ${POMODOROS_PER_LONG_BREAK} done`
-              : `Pomodoro ${done + 1} of ${POMODOROS_PER_LONG_BREAK}`}
+            {subtitle}
           </Text>
+
+          <Text
+            variant={isLandscape ? 'displayMedium' : 'displayLarge'}
+            style={styles.digits}
+          >
+            {formatClock(timer.secondsLeft)}
+          </Text>
+
+          <View style={styles.round}>
+            {Array.from({ length: POMODOROS_PER_LONG_BREAK }, (_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  {
+                    backgroundColor:
+                      index < done
+                        ? theme.colors.primary
+                        : theme.colors.surfaceVariant,
+                  },
+                ]}
+              />
+            ))}
+            <Text
+              variant="labelMedium"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              {isBreak
+                ? `${done} of ${POMODOROS_PER_LONG_BREAK} done`
+                : `Pomodoro ${done + 1} of ${POMODOROS_PER_LONG_BREAK}`}
+            </Text>
+          </View>
+
+          {hasSubjects ? null : (
+            // The selector below shows the subject, so only the empty state
+            // needs saying: it explains why the controls are disabled.
+            <Text
+              variant="bodyMedium"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              Add a subject to begin
+            </Text>
+          )}
         </View>
 
-        {!isBreak ? (
-          <Text
-            variant="bodyMedium"
-            style={{ color: theme.colors.onSurfaceVariant }}
-          >
-            {subject
-              ? `Studying ${subject.name}`
-              : hasSubjects
-                ? 'Choose a subject to begin'
-                : 'Add a subject to begin'}
-          </Text>
-        ) : (
-          <Text
-            variant="bodyMedium"
-            style={{ color: theme.colors.onSurfaceVariant }}
-          >
-            {subject ? `Break from ${subject.name}` : 'Rest up'}
-          </Text>
-        )}
-      </View>
+        <View style={[styles.controls, isLandscape && styles.controlsLandscape]}>
+          {!isBreak && (
+            <>
+              <Button
+                mode="outlined"
+                icon="book-open-variant"
+                onPress={() => {
+                  setDraftSubjectId(timer.subjectId);
+                  setSubjectDialogOpen(true);
+                }}
+                disabled={!hasSubjects}
+              >
+                {subject?.name ?? 'Choose subject'}
+              </Button>
 
-      <View style={styles.controls}>
-        {!isBreak && (
-          <>
-            <Menu
-              visible={menuOpen}
-              onDismiss={() => setMenuOpen(false)}
-              anchor={
-                <Button
-                  mode="outlined"
-                  icon="book-open-variant"
-                  onPress={() => setMenuOpen(true)}
-                  disabled={!hasSubjects}
-                >
-                  {subject?.name ?? 'Choose subject'}
-                </Button>
+              <SegmentedButtons
+                value={String(timer.minutes)}
+                onValueChange={(value) => setTimerMinutes(Number(value))}
+                buttons={FOCUS_DURATIONS.map((minutes) => ({
+                  value: String(minutes),
+                  label: `${minutes}m`,
+                }))}
+              />
+            </>
+          )}
+
+          <Button
+            mode="contained"
+            icon={timer.isRunning ? 'pause' : 'play'}
+            onPress={handleTimerPress}
+            disabled={!hasSubjects && !isBreak}
+            contentStyle={styles.startButton}
+            labelStyle={styles.startLabel}
+          >
+            {action}
+          </Button>
+        </View>
+      </ScrollView>
+
+      {/*
+        A dialog rather than a menu: the menu could not scroll, so a long
+        subject list ran off the screen.
+      */}
+      <AppDialog
+        visible={subjectDialogOpen}
+        onDismiss={() => setSubjectDialogOpen(false)}
+      >
+        <Dialog.Title>Choose subject</Dialog.Title>
+        <DialogBody>
+          <RadioButton.Group
+            value={draftSubjectId ?? ''}
+            onValueChange={setDraftSubjectId}
+          >
+            {data.subjects.map((item) => (
+              <RadioButton.Item
+                key={item.id}
+                label={item.name}
+                value={item.id}
+                style={styles.radioItem}
+                labelVariant="bodyLarge"
+                position="leading"
+                labelStyle={styles.radioLabel}
+              />
+            ))}
+          </RadioButton.Group>
+        </DialogBody>
+        <Dialog.Actions>
+          <Button onPress={() => setSubjectDialogOpen(false)}>Cancel</Button>
+          <Button
+            onPress={() => {
+              if (draftSubjectId) {
+                setTimerSubject(draftSubjectId);
               }
-            >
-              {data.subjects.map((item) => (
-                <Menu.Item
-                  key={item.id}
-                  title={item.name}
-                  onPress={() => {
-                    setTimerSubject(item.id);
-                    setMenuOpen(false);
-                  }}
-                />
-              ))}
-            </Menu>
 
-            <SegmentedButtons
-              value={String(timer.minutes)}
-              onValueChange={(value) => setTimerMinutes(Number(value))}
-              buttons={FOCUS_DURATIONS.map((minutes) => ({
-                value: String(minutes),
-                label: `${minutes}m`,
-              }))}
-            />
-          </>
-        )}
-
-        <Button
-          mode="contained"
-          icon={timer.isRunning ? 'pause' : 'play'}
-          onPress={handleTimerPress}
-          disabled={!hasSubjects && !isBreak}
-          contentStyle={styles.startButton}
-          labelStyle={styles.startLabel}
-        >
-          {action}
-        </Button>
-      </View>
+              setSubjectDialogOpen(false);
+            }}
+            disabled={!draftSubjectId}
+          >
+            Choose
+          </Button>
+        </Dialog.Actions>
+      </AppDialog>
 
       <DndPromptDialog
         visible={dndPromptOpen}
@@ -278,15 +355,33 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: 8,
   },
-  body: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
+  content: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 16,
     paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  // Landscape: readout on the left, controls on the right, so neither is
+  // squeezed into the little height a phone has in that orientation.
+  contentLandscape: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 32,
+    paddingVertical: 8,
+  },
+  readout: {
+    width: '100%',
+    maxWidth: 480,
+    alignItems: 'center',
+    gap: 12,
+  },
+  readoutLandscape: {
+    flex: 1,
+    maxWidth: 420,
+    gap: 6,
   },
   medallion: {
     width: 64,
@@ -315,8 +410,19 @@ const styles = StyleSheet.create({
     maxWidth: 520,
     alignSelf: 'center',
     gap: 16,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+  },
+  controlsLandscape: {
+    flex: 1,
+    maxWidth: 360,
+    gap: 12,
+  },
+  radioItem: {
+    paddingHorizontal: 0,
+  },
+  // Paper right-aligns the label when the radio is leading, which pushes it to
+  // the far edge; a picker list reads better with the text beside the control.
+  radioLabel: {
+    textAlign: 'left',
   },
   startButton: {
     height: 56,

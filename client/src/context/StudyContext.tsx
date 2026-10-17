@@ -32,10 +32,10 @@ import {
   type SyncMetadata,
 } from '../storage/sync';
 import {
-  FOCUS_DURATIONS,
   breakAfter,
+  defaultFocusTimer,
   phaseMinutes,
-  type TimerPhase,
+  type FocusTimer,
 } from '../study/timer';
 import {
   EMPTY_STUDY_DATA,
@@ -110,26 +110,20 @@ type StudyContextValue = {
   toggleRestDay: (date: string) => void;
   /** Drops today's session for a task, so a mis-tick can be corrected. */
   clearTaskSession: (taskId: string) => void;
-  timer: FocusTimer;
+  /** The countdown for the subject chosen on the focus screen. */
+  timer: FocusTimer & { subjectId: string | null };
+  /** The countdown running right now, whichever subject owns it. */
+  runningTimer: { subjectId: string; timer: FocusTimer } | null;
+  /** Chooses which subject's timer the focus screen shows; nothing is stopped. */
   setTimerSubject: (subjectId: string) => void;
   setTimerMinutes: (minutes: number) => void;
   toggleTimer: () => void;
+  /** Abandons the chosen subject's block and returns its timer to a fresh one. */
+  resetTimer: () => void;
   sync: StudySyncState;
   /** Runs a sync now; a no-op while signed out or already syncing. */
   syncNow: () => void;
 };
-
-export type FocusTimer = {
-  subjectId: string | null;
-  minutes: number;
-  secondsLeft: number;
-  isRunning: boolean;
-  phase: TimerPhase;
-  /** Focus blocks finished within the current set. */
-  completedPomodoros: number;
-};
-
-const DEFAULT_FOCUS_MINUTES = FOCUS_DURATIONS[0];
 
 /** Turns dialog input into the fields stored on an event. */
 function toEventFields(input: EventInput): Omit<StudyEvent, 'id'> {
@@ -178,16 +172,13 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     status: 'idle',
     lastSyncedAt: null,
   });
-  // The focus timer lives here rather than in a screen so it keeps counting
-  // while the user moves around the app.
-  const [timer, setTimer] = useState<FocusTimer>({
-    subjectId: null,
-    minutes: DEFAULT_FOCUS_MINUTES,
-    secondsLeft: DEFAULT_FOCUS_MINUTES * 60,
-    isRunning: false,
-    phase: 'focus',
-    completedPomodoros: 0,
-  });
+  // Every subject keeps its own countdown here rather than in a screen, so one
+  // subject's timer keeps its place while another is used, and closing the
+  // focus screen never discards either of them.
+  const [timers, setTimers] = useState<Record<string, FocusTimer>>({});
+  // The subject whose timer the focus screen shows. Nothing is stopped when
+  // this changes; each subject simply resumes where it was left.
+  const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
 
   const repository = useMemo(
     () => (storageKey ? createAsyncStorageStudyRepository(storageKey) : null),
@@ -512,6 +503,18 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   const removeSubject = useCallback(
     (id: string) => {
+      // Its countdown has nothing left to log to.
+      setTimers((current) => {
+        if (!(id in current)) {
+          return current;
+        }
+
+        const next = { ...current };
+        delete next[id];
+
+        return next;
+      });
+
       change((current) => {
         // Sessions logged from this subject's tasks are study time created by
         // those tasks, so they go too. Timer sessions (no task) stay as history.
@@ -527,6 +530,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           tasks: current.tasks.filter((task) => task.subjectId !== id),
           sessions: current.sessions.filter(
             (session) => !session.taskId || !removedTaskIds.has(session.taskId)
+          ),
+          // Exams keep their countdown, but the reference to the gone subject
+          // is dropped so no screen has to render a "removed subject" label.
+          events: current.events.map((event) =>
+            event.subjectId === id ? { ...event, subjectId: undefined } : event
           ),
         };
       });
@@ -725,27 +733,61 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     [change]
   );
 
-  // Fall back to the first subject whenever the chosen one is gone.
+  // The subject whose timer the focus screen shows. Falls back to the first
+  // subject when the chosen one is gone.
   const timerSubjectId =
-    timer.subjectId && data.subjects.some((s) => s.id === timer.subjectId)
-      ? timer.subjectId
+    activeSubjectId && data.subjects.some((s) => s.id === activeSubjectId)
+      ? activeSubjectId
       : data.subjects[0]?.id ?? null;
 
+  const activeTimer = timerSubjectId
+    ? timers[timerSubjectId] ?? defaultFocusTimer()
+    : defaultFocusTimer();
+
+  const runningEntry = Object.entries(timers).find(
+    ([, state]) => state.isRunning
+  );
+  const runningTimer = runningEntry
+    ? { subjectId: runningEntry[0], timer: runningEntry[1] }
+    : null;
+  const runningSubjectId = runningEntry?.[0] ?? null;
+
+  // `subjectId:minutes` for every focus block counting down, so the task effect
+  // only re-runs when one starts, stops or changes length — not every tick.
+  const runningFocusSignature = Object.entries(timers)
+    .filter(([, state]) => state.isRunning && state.phase === 'focus')
+    .map(([subjectId, state]) => `${subjectId}:${state.minutes}`)
+    .sort()
+    .join(',');
+
+  const finishedSubjectId = Object.entries(timers).find(
+    ([, state]) => state.isRunning && state.secondsLeft === 0
+  )?.[0];
+  const finishedTimer = finishedSubjectId ? timers[finishedSubjectId] : null;
+
   useEffect(() => {
-    // A focus block gets a task for its subject and day. Pausing and resuming
-    // finds the same task, so a session is never split across duplicates.
-    if (!timer.isRunning || timer.phase !== 'focus' || !timerSubjectId) {
+    // A running focus block gets a task for its subject and day. Pausing and
+    // resuming finds the same task, so a session is never split across
+    // duplicates.
+    if (!runningFocusSignature) {
       return;
     }
 
     const date = todayKey();
+    const wanted = runningFocusSignature.split(',').map((entry) => {
+      const [subjectId, minutes] = entry.split(':');
 
-    if (timerTaskOn(data, timerSubjectId, date)) {
-      return;
-    }
+      return { subjectId, minutes: Number(minutes) };
+    });
 
     change((current) => {
-      if (timerTaskOn(current, timerSubjectId, date)) {
+      const missing = wanted.filter(
+        ({ subjectId }) =>
+          current.subjects.some((subject) => subject.id === subjectId) &&
+          !timerTaskOn(current, subjectId, date)
+      );
+
+      if (!missing.length) {
         return current;
       }
 
@@ -753,131 +795,186 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         ...current,
         tasks: [
           ...current.tasks,
-          {
+          ...missing.map(({ subjectId, minutes }) => ({
             id: createId(),
             title: 'Focus session',
-            subjectId: timerSubjectId,
-            weekdays: [],
+            subjectId,
+            weekdays: [] as number[],
             date,
-            minutes: timer.minutes,
+            minutes,
             timer: true,
-          },
+          })),
         ],
       };
     });
-  }, [
-    change,
-    data,
-    timer.isRunning,
-    timer.minutes,
-    timer.phase,
-    timerSubjectId,
-  ]);
+  }, [change, runningFocusSignature]);
 
   useEffect(() => {
-    if (!timer.isRunning) {
+    if (!runningSubjectId) {
       return;
     }
 
     const tick = setInterval(() => {
-      setTimer((current) => ({
-        ...current,
-        secondsLeft: Math.max(0, current.secondsLeft - 1),
-      }));
+      setTimers((current) => {
+        const running = current[runningSubjectId];
+
+        if (!running?.isRunning) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [runningSubjectId]: {
+            ...running,
+            secondsLeft: Math.max(0, running.secondsLeft - 1),
+          },
+        };
+      });
     }, 1000);
 
     return () => clearInterval(tick);
-  }, [timer.isRunning]);
+  }, [runningSubjectId]);
 
   useEffect(() => {
-    // A finished phase advances the cycle: a focus block logs the session it
-    // stood for and leads into a break; a break leads back into the next focus
-    // block. The countdown keeps running through both.
-    if (timer.secondsLeft > 0 || !timer.isRunning) {
+    // A finished phase advances that subject's cycle: a focus block logs the
+    // session it stood for and leads into a break; a break leads back into the
+    // next focus block. The countdown keeps running through both.
+    if (!finishedSubjectId || !finishedTimer) {
       return;
     }
 
-    if (timer.phase === 'focus') {
-      const completedPomodoros = timer.completedPomodoros + 1;
+    if (finishedTimer.phase === 'focus') {
+      const completedPomodoros = finishedTimer.completedPomodoros + 1;
       const phase = breakAfter(completedPomodoros);
+      const timerTask = timerTaskOn(data, finishedSubjectId, todayKey());
 
-      if (timerSubjectId) {
-        const timerTask = timerTaskOn(data, timerSubjectId, todayKey());
+      logSession({
+        subjectId: finishedSubjectId,
+        minutes: finishedTimer.minutes,
+        status: 'done',
+        taskId: timerTask?.id,
+        // Several pomodoros on the same task add up on that day's session.
+        accumulate: Boolean(timerTask),
+      });
 
-        logSession({
-          subjectId: timerSubjectId,
-          minutes: timer.minutes,
-          status: 'done',
-          taskId: timerTask?.id,
-          // Several pomodoros on the same task add up on that day's session.
-          accumulate: Boolean(timerTask),
-        });
-      }
-
-      setTimer((current) => ({
+      setTimers((current) => ({
         ...current,
-        phase,
-        secondsLeft: phaseMinutes(phase, current.minutes) * 60,
-        completedPomodoros,
-        isRunning: true,
+        [finishedSubjectId]: {
+          ...current[finishedSubjectId],
+          phase,
+          secondsLeft: phaseMinutes(phase, finishedTimer.minutes) * 60,
+          completedPomodoros,
+          isRunning: true,
+        },
       }));
       return;
     }
 
-    setTimer((current) => ({
+    setTimers((current) => ({
       ...current,
-      phase: 'focus',
-      secondsLeft: current.minutes * 60,
-      isRunning: true,
+      [finishedSubjectId]: {
+        ...current[finishedSubjectId],
+        phase: 'focus',
+        secondsLeft: finishedTimer.minutes * 60,
+        isRunning: true,
+      },
     }));
-  }, [
-    data,
-    logSession,
-    timer.completedPomodoros,
-    timer.isRunning,
-    timer.minutes,
-    timer.phase,
-    timer.secondsLeft,
-    timerSubjectId,
-  ]);
+  }, [data, finishedSubjectId, finishedTimer, logSession]);
 
   useEffect(() => {
-    // Signing out should not leave a countdown running in the background.
-    setTimer((current) =>
-      current.isRunning ? { ...current, isRunning: false } : current
-    );
+    // Signing out should not leave a countdown running in the background, and
+    // another account's subjects never share these.
+    setTimers({});
+    setActiveSubjectId(null);
   }, [user?.id]);
 
   const setTimerSubject = useCallback((subjectId: string) => {
-    setTimer((current) => ({ ...current, subjectId }));
+    // Each subject owns its countdown, so this only changes what the focus
+    // screen shows — nothing is stopped or reset.
+    setActiveSubjectId(subjectId);
   }, []);
 
-  const setTimerMinutes = useCallback((minutes: number) => {
-    setTimer((current) => ({
-      ...current,
-      minutes,
-      // A stopped focus block jumps to the new length; a running countdown or a
-      // break keeps its remaining time.
-      secondsLeft:
-        current.phase === 'focus' && !current.isRunning
-          ? minutes * 60
-          : current.secondsLeft,
-    }));
-  }, []);
-
-  const toggleTimer = useCallback(() => {
-    setTimer((current) => {
-      if (!current.isRunning && current.secondsLeft === 0) {
-        return {
-          ...current,
-          secondsLeft: phaseMinutes(current.phase, current.minutes) * 60,
-          isRunning: true,
-        };
+  const setTimerMinutes = useCallback(
+    (minutes: number) => {
+      if (!timerSubjectId) {
+        return;
       }
 
-      return { ...current, isRunning: !current.isRunning };
+      setTimers((current) => {
+        const timer = current[timerSubjectId] ?? defaultFocusTimer();
+
+        return {
+          ...current,
+          [timerSubjectId]: {
+            ...timer,
+            minutes,
+            // A stopped focus block jumps to the new length; a running
+            // countdown or a break keeps its remaining time.
+            secondsLeft:
+              timer.phase === 'focus' && !timer.isRunning
+                ? minutes * 60
+                : timer.secondsLeft,
+          },
+        };
+      });
+    },
+    [timerSubjectId]
+  );
+
+  const toggleTimer = useCallback(() => {
+    if (!timerSubjectId) {
+      return;
+    }
+
+    setTimers((current) => {
+      const timer = current[timerSubjectId] ?? defaultFocusTimer();
+      const next: FocusTimer = timer.isRunning
+        ? { ...timer, isRunning: false }
+        : {
+            ...timer,
+            // Resuming a block that already ran out restarts its phase.
+            secondsLeft:
+              timer.secondsLeft === 0
+                ? phaseMinutes(timer.phase, timer.minutes) * 60
+                : timer.secondsLeft,
+            isRunning: true,
+          };
+
+      // Only one countdown runs at a time, so starting one pauses any other.
+      // The paused one keeps its seconds, ready to resume later.
+      const paused = Object.fromEntries(
+        Object.entries(current).map(([id, state]) => [
+          id,
+          id !== timerSubjectId && state.isRunning
+            ? { ...state, isRunning: false }
+            : state,
+        ])
+      );
+
+      return { ...paused, [timerSubjectId]: next };
     });
-  }, []);
+  }, [timerSubjectId]);
+
+  const resetTimer = useCallback(() => {
+    if (!timerSubjectId) {
+      return;
+    }
+
+    setTimers((current) => {
+      const timer = current[timerSubjectId] ?? defaultFocusTimer();
+
+      return {
+        ...current,
+        [timerSubjectId]: {
+          ...timer,
+          phase: 'focus',
+          secondsLeft: timer.minutes * 60,
+          isRunning: false,
+          completedPomodoros: 0,
+        },
+      };
+    });
+  }, [timerSubjectId]);
 
   const clearTaskSession = useCallback(
     (taskId: string) => {
@@ -898,10 +995,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       data,
       isRestoring,
       clearTaskSession,
-      timer: { ...timer, subjectId: timerSubjectId },
+      timer: { ...activeTimer, subjectId: timerSubjectId },
+      runningTimer,
       setTimerSubject,
       setTimerMinutes,
       toggleTimer,
+      resetTimer,
       addSubject,
       updateSubject,
       removeSubject,
@@ -921,11 +1020,14 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       data,
       isRestoring,
       clearTaskSession,
-      timer,
+      activeTimer,
+      timers,
       timerSubjectId,
+      runningTimer,
       setTimerSubject,
       setTimerMinutes,
       toggleTimer,
+      resetTimer,
       addSubject,
       updateSubject,
       removeSubject,
