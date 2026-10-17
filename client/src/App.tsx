@@ -7,13 +7,17 @@ import {
 import { Asset } from 'expo-asset';
 import { createURL } from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import {
   PaperProvider,
   adaptNavigationTheme,
 } from 'react-native-paper';
 import { en, registerTranslation } from 'react-native-paper-dates';
+import { resolveBackend } from './api/backend';
+import { setApiBaseUrl } from './api/client';
+import { ServerSetup } from './components/ServerSetup';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PreferencesProvider } from './context/PreferencesContext';
 import { StudyProvider } from './context/StudyContext';
@@ -92,11 +96,7 @@ export function App() {
   return (
     <ThemePreferenceProvider>
       <PreferencesProvider>
-        <AuthProvider>
-          <StudyProvider>
-            <ThemedNavigation />
-          </StudyProvider>
-        </AuthProvider>
+        <ThemedApp />
       </PreferencesProvider>
     </ThemePreferenceProvider>
   );
@@ -107,7 +107,7 @@ export function App() {
  * when the preference is `system` — and keeps React Native Paper and React
  * Navigation in sync.
  */
-function ThemedNavigation() {
+function ThemedApp() {
   const systemScheme = useColorScheme();
   const { preference } = useThemePreference();
 
@@ -116,7 +116,85 @@ function ThemedNavigation() {
 
   return (
     <PaperProvider theme={isDark ? GreenDarkTheme : GreenLightTheme}>
-      <RootNavigation theme={isDark ? DarkTheme : LightTheme} />
+      {/*
+        The native status bar follows the device while `userInterfaceStyle` is
+        "automatic", so it needs to be told which way the in-app theme went.
+        Without this, picking Dark on a light device leaves dark icons on a dark
+        background.
+      */}
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <BackendGate navigationTheme={isDark ? DarkTheme : LightTheme} />
     </PaperProvider>
+  );
+}
+
+type BackendStatus = 'resolving' | 'needs-url' | 'ready';
+
+/**
+ * Holds the splash screen until there is a backend to talk to.
+ *
+ * An installed build sweeps the LAN for one and, failing that, asks for the
+ * address; Expo Go and the browser already know the dev machine, so they are
+ * ready immediately. Nothing above talks to the API before this settles.
+ */
+function BackendGate({ navigationTheme }: { navigationTheme: Theme }) {
+  const [status, setStatus] = useState<BackendStatus>('resolving');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    resolveBackend()
+      .then((resolution) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (resolution.status === 'ready') {
+          setApiBaseUrl(resolution.url);
+          setStatus('ready');
+        } else {
+          setStatus('needs-url');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStatus('needs-url');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    // The splash screen covers the LAN sweep; once it is over there is
+    // something to show either way.
+    if (status !== 'resolving') {
+      hideSplash();
+    }
+  }, [status]);
+
+  if (status === 'resolving') {
+    return null;
+  }
+
+  if (status === 'needs-url') {
+    return (
+      <ServerSetup
+        onConnected={(url) => {
+          setApiBaseUrl(url);
+          setStatus('ready');
+        }}
+      />
+    );
+  }
+
+  return (
+    <AuthProvider>
+      <StudyProvider>
+        <RootNavigation theme={navigationTheme} />
+      </StudyProvider>
+    </AuthProvider>
   );
 }

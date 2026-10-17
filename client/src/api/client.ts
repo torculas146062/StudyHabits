@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 
-const DEFAULT_API_PORT = 3000;
+/** Port the Study Habits API listens on, used for discovery and defaults. */
+export const API_PORT = 3000;
 
 export class ApiError extends Error {
   readonly status?: number;
@@ -18,16 +19,23 @@ export class ApiError extends Error {
   }
 }
 
+/** Set once at startup by the backend resolution, and used for every request. */
+let resolvedBaseUrl: string | null = null;
+
+/** Points all requests at the backend found on the LAN or entered by hand. */
+export function setApiBaseUrl(url: string): void {
+  resolvedBaseUrl = url.replace(/\/+$/, '');
+}
+
 /**
- * Base URL of the backend.
+ * The URL the Expo dev server implies.
  *
  * On a phone `localhost` points at the phone itself, so the host is taken from
  * the Expo dev server instead — that's the machine running `npm run dev`, which
- * is already reachable over the LAN from Expo Go and installed builds.
- *
- * Set `EXPO_PUBLIC_API_URL` to override this, e.g. for a deployed server.
+ * is already reachable over the LAN from Expo Go and installed builds. Set
+ * `EXPO_PUBLIC_API_URL` to override it, e.g. for a deployed server.
  */
-export function getApiBaseUrl(): string {
+export function devServerApiUrl(): string {
   const configured = process.env.EXPO_PUBLIC_API_URL?.trim();
 
   if (configured) {
@@ -36,7 +44,12 @@ export function getApiBaseUrl(): string {
 
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
 
-  return `http://${host ?? 'localhost'}:${DEFAULT_API_PORT}`;
+  return `http://${host ?? 'localhost'}:${API_PORT}`;
+}
+
+/** Base URL of the backend: the resolved one, else the dev server's. */
+export function getApiBaseUrl(): string {
+  return resolvedBaseUrl ?? devServerApiUrl();
 }
 
 export async function apiPost(path: string, body: unknown): Promise<Response> {
