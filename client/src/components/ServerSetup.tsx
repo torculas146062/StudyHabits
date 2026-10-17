@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import {
   Button,
   HelperText,
@@ -81,58 +86,65 @@ export function ServerSetup({ onConnected }: ServerSetupProps) {
     <SafeAreaView
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
-      <View style={styles.content}>
-        <Text variant="headlineSmall">Find your server</Text>
-        <Text
-          variant="bodyMedium"
-          style={{ color: theme.colors.onSurfaceVariant }}
+      <KeyboardAvoidingView behavior="padding" style={styles.screen}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
         >
-          Study Habits looked for the backend on this network but nothing
-          answered. Start the server, or enter its address — usually the
-          computer running it, on port 3000.
-        </Text>
+          <View style={styles.column}>
+            <Text variant="headlineSmall">Find your server</Text>
+            <Text
+              variant="bodyMedium"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              Study Habits looked for the backend on this network but nothing
+              answered. Start the server, or enter its address — usually the
+              computer running it, on port 3000.
+            </Text>
 
-        <TextInput
-          mode="outlined"
-          label="Server address"
-          placeholder={EXAMPLES}
-          value={value}
-          onChangeText={setValue}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          disabled={disabled}
-          error={Boolean(error)}
-          onSubmitEditing={connect}
-          returnKeyType="go"
-        />
-        {error ? (
-          <HelperText type="error" visible>
-            {error}
-          </HelperText>
-        ) : (
-          <HelperText type="info" visible>
-            {`For example ${EXAMPLES}`}
-          </HelperText>
-        )}
+            <TextInput
+              mode="outlined"
+              label="Server address"
+              placeholder={EXAMPLES}
+              value={value}
+              onChangeText={setValue}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              disabled={disabled}
+              error={Boolean(error)}
+              onSubmitEditing={connect}
+              returnKeyType="go"
+            />
+            {error ? (
+              <HelperText type="error" visible>
+                {error}
+              </HelperText>
+            ) : (
+              <HelperText type="info" visible>
+                {`For example ${EXAMPLES}`}
+              </HelperText>
+            )}
 
-        <Button
-          mode="contained"
-          onPress={connect}
-          loading={busy}
-          disabled={disabled}
-        >
-          Connect
-        </Button>
-        <Button
-          mode="text"
-          onPress={rescan}
-          loading={scanning}
-          disabled={disabled}
-        >
-          Search the network again
-        </Button>
-      </View>
+            <Button
+              mode="contained"
+              onPress={connect}
+              loading={busy}
+              disabled={disabled}
+            >
+              Connect
+            </Button>
+            <Button
+              mode="text"
+              onPress={rescan}
+              loading={scanning}
+              disabled={disabled}
+            >
+              Search the network again
+            </Button>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -142,13 +154,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 48,
+  },
+  column: {
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
-    justifyContent: 'center',
     gap: 12,
-    paddingHorizontal: 24,
-    paddingBottom: 48,
   },
 });
