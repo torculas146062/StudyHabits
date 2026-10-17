@@ -27,11 +27,12 @@ export function BarChart({
       accessibilityRole="image"
       accessibilityLabel={accessibilityLabel}
     >
-      {data.map((item) => {
+      {data.map((item, index) => {
         const ratio = item.value > 0 ? item.value / max : 0;
 
         return (
-          <View key={item.label} style={styles.column}>
+          // Labels repeat (two "S" and two "T" in a week), so the index keeps keys unique.
+          <View key={`${item.label}-${index}`} style={styles.column}>
             <Text
               variant="labelSmall"
               numberOfLines={1}

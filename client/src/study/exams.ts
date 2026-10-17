@@ -65,8 +65,18 @@ export function buildExamPrepTasks(
     days.length,
     Math.max(1, Math.round(targetMinutes / SESSION_MINUTES))
   );
-  const chosenDays = days.slice(days.length - sessionCount);
-  const minutes = roundUpMinutes(targetMinutes / sessionCount);
+  // Preparation is only ever scheduled from `from` (today) onwards. `days`
+  // already starts there; filtering again keeps that guarantee explicit if the
+  // window maths above ever drifts, and never emits a past-dated task.
+  const chosenDays = days
+    .slice(days.length - sessionCount)
+    .filter((day) => day >= from);
+
+  if (chosenDays.length === 0) {
+    return [];
+  }
+
+  const minutes = roundUpMinutes(targetMinutes / chosenDays.length);
 
   return chosenDays.map((day) => ({
     id: createId(),

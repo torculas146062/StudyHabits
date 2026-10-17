@@ -20,7 +20,9 @@ import {
 } from '@react-navigation/native-stack';
 import { useCallback, useState, type ReactNode } from 'react';
 import {
+  StyleSheet,
   useWindowDimensions,
+  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -54,10 +56,15 @@ type AppbarHeaderProps = {
 
 function AppbarHeader({ title, onBack, right, style }: AppbarHeaderProps) {
   return (
-    <Appbar.Header style={style}>
-      {onBack ? <Appbar.BackAction onPress={onBack} /> : null}
+    // Both ends get an equally wide box, filled or empty, so the centred title
+    // sits at the exact middle of the bar rather than in the space left over
+    // between whatever actions this screen happens to have.
+    <Appbar.Header style={style} mode="center-aligned">
+      <View style={styles.headerSlot}>
+        {onBack ? <Appbar.BackAction onPress={onBack} /> : null}
+      </View>
       <Appbar.Content title={title} />
-      {right}
+      <View style={styles.headerSlot}>{right}</View>
     </Appbar.Header>
   );
 }
@@ -513,3 +520,11 @@ type AppStackType = typeof AppStack;
 declare module '@react-navigation/native' {
   interface RootNavigator extends AppStackType {}
 }
+
+const styles = StyleSheet.create({
+  headerSlot: {
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
