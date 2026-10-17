@@ -58,9 +58,39 @@ export function createApp({
 
   // Error handler
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    const status = errorStatus(err);
+
+    if (status >= 500) {
+      console.error(err);
+    }
+
+    res.status(status).json({ error: errorMessage(status) });
   });
 
   return app;
+}
+
+/**
+ * `express.json` rejects malformed or oversized bodies with an error that
+ * carries an HTTP status (400 / 413). Reporting those as 500 would blame the
+ * server for a bad request, so the status is passed through when present.
+ */
+function errorStatus(err: Error): number {
+  const candidate = (err as { status?: unknown; statusCode?: unknown }).status ??
+    (err as { statusCode?: unknown }).statusCode;
+
+  return typeof candidate === 'number' &&
+    Number.isInteger(candidate) &&
+    candidate >= 400 &&
+    candidate <= 599
+    ? candidate
+    : 500;
+}
+
+function errorMessage(status: number): string {
+  if (status < 500) {
+    return status === 413 ? 'Payload too large' : 'Invalid request';
+  }
+
+  return 'Internal Server Error';
 }
