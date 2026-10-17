@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { AppDialog } from './AppDialog';
+import { AppDialog, DialogBody } from './AppDialog';
 import {
   Button,
   Dialog,
@@ -39,7 +39,7 @@ export function DndPromptDialog({
   return (
     <AppDialog visible={visible} onDismiss={onDismiss}>
       <Dialog.Title>Silence interruptions?</Dialog.Title>
-      <Dialog.Content style={styles.content}>
+      <DialogBody contentStyle={styles.content}>
         <Text variant="bodyMedium">
           Do Not Disturb mutes calls and alerts while the pomodoro timer runs.
           Your device controls the setting, so enable it once in system
@@ -61,7 +61,7 @@ export function DndPromptDialog({
             </Text>
           </View>
         </TouchableRipple>
-      </Dialog.Content>
+      </DialogBody>
       <Dialog.Actions>
         <Button onPress={() => onChoose(false, remember)}>Not now</Button>
         <Button onPress={() => onChoose(true, remember)}>

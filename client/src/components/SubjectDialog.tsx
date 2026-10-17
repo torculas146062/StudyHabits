@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
-import { Button, Dialog, TextInput } from 'react-native-paper';
+import { Button, Dialog, Text, TextInput, useTheme } from 'react-native-paper';
 
-import { AppDialog } from './AppDialog';
+import { AppDialog, DialogBody } from './AppDialog';
 
 import { useStudy } from '../context/StudyContext';
 import { SUBJECT_GOAL_FALLBACK, type Subject } from '../study/types';
+
+const MAX_GOAL_MINUTES = 24 * 60;
 
 type SubjectDialogProps = {
   visible: boolean;
@@ -18,6 +19,7 @@ export function SubjectDialog({
   subject,
   onDismiss,
 }: SubjectDialogProps) {
+  const theme = useTheme();
   const { addSubject, updateSubject } = useStudy();
   const [name, setName] = useState('');
   const [goal, setGoal] = useState(String(SUBJECT_GOAL_FALLBACK));
@@ -32,15 +34,20 @@ export function SubjectDialog({
     setGoal(String(subject?.goalMinutes ?? SUBJECT_GOAL_FALLBACK));
   }, [subject, visible]);
 
+  const goalMinutes = Number(goal.trim().replace(',', '.'));
+  // A zero, negative or fractional goal would break the progress bars that
+  // divide by it, so only a whole number of minutes is accepted.
+  const goalValid =
+    Number.isInteger(goalMinutes) &&
+    goalMinutes > 0 &&
+    goalMinutes <= MAX_GOAL_MINUTES;
+
   const save = () => {
-    if (!name.trim()) {
+    if (!name.trim() || !goalValid) {
       return;
     }
 
-    const input = {
-      name: name.trim(),
-      goalMinutes: Number(goal) || SUBJECT_GOAL_FALLBACK,
-    };
+    const input = { name: name.trim(), goalMinutes };
 
     if (subject) {
       updateSubject(subject.id, input);
@@ -54,7 +61,7 @@ export function SubjectDialog({
   return (
     <AppDialog visible={visible} onDismiss={onDismiss}>
       <Dialog.Title>{subject ? 'Edit subject' : 'Add subject'}</Dialog.Title>
-      <Dialog.Content style={styles.content}>
+      <DialogBody>
         <TextInput
           mode="outlined"
           label="Name"
@@ -67,11 +74,20 @@ export function SubjectDialog({
           keyboardType="number-pad"
           value={goal}
           onChangeText={setGoal}
+          error={!goalValid}
         />
-      </Dialog.Content>
+        <Text
+          variant="bodySmall"
+          style={{ color: theme.colors.onSurfaceVariant }}
+        >
+          {goalValid
+            ? 'How long you aim to study this subject each day.'
+            : `Enter a whole number of minutes between 1 and ${MAX_GOAL_MINUTES}.`}
+        </Text>
+      </DialogBody>
       <Dialog.Actions>
         <Button onPress={onDismiss}>Cancel</Button>
-        <Button onPress={save} disabled={!name.trim()}>
+        <Button onPress={save} disabled={!name.trim() || !goalValid}>
           {subject ? 'Save changes' : 'Add subject'}
         </Button>
       </Dialog.Actions>
@@ -79,8 +95,3 @@ export function SubjectDialog({
   );
 }
 
-const styles = StyleSheet.create({
-  content: {
-    gap: 12,
-  },
-});

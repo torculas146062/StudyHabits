@@ -12,7 +12,7 @@ import {
 } from 'react-native-paper';
 
 import { TimeField } from './TimeField';
-import { AppDialog } from './AppDialog';
+import { AppDialog, DialogBody } from './AppDialog';
 import { useStudy } from '../context/StudyContext';
 import { WEEKDAY_LABELS, formatDay, isTimeKey, minutesLabel } from '../study/date';
 import type { Task } from '../study/types';
@@ -132,7 +132,7 @@ export function TaskDialog({
   return (
     <AppDialog visible={visible} onDismiss={onDismiss}>
       <Dialog.Title>{task ? 'Edit task' : 'Add task'}</Dialog.Title>
-      <Dialog.Content style={styles.content}>
+      <DialogBody>
         <TextInput
           mode="outlined"
           label="Task name"
@@ -202,12 +202,12 @@ export function TaskDialog({
             onChangeText={setDuration}
             keyboardType="decimal-pad"
             error={!durationValid}
-            style={styles.durationInput}
           />
           <SegmentedButtons<DurationUnit>
             value={durationUnit}
             onValueChange={setDurationUnit}
             buttons={DURATION_UNITS}
+            style={styles.durationUnit}
           />
         </View>
         <Text
@@ -242,7 +242,7 @@ export function TaskDialog({
             onChange={setReminderTime}
           />
         ) : null}
-      </Dialog.Content>
+      </DialogBody>
       <Dialog.Actions>
         <Button onPress={onDismiss}>Cancel</Button>
         <Button
@@ -257,21 +257,18 @@ export function TaskDialog({
 }
 
 const styles = StyleSheet.create({
-  content: {
-    gap: 12,
-  },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   durationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    // Stacked on purpose: side by side, the unit selector's labels win the row
+    // and squeeze the field to nothing on a phone.
     gap: 8,
   },
-  durationInput: {
-    flex: 1,
+  durationUnit: {
+    alignSelf: 'flex-start',
   },
   reminderRow: {
     flexDirection: 'row',
