@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
+  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -22,19 +23,37 @@ type AppDialogProps = DialogProps & {
  * Paper dialogs have no size cap, so on a tablet, in landscape, or on the web
  * they stretch across the screen, and on a phone a tall form runs off the
  * bottom with its actions unreachable. This caps the width, caps the height to
- * the window, and `DialogBody` makes the middle scroll.
+ * what the keyboard leaves, lifts the dialog above the keyboard, and
+ * `DialogBody` makes the middle scroll.
  */
 export function AppDialog({ children, style, ...props }: AppDialogProps) {
   const { height } = useWindowDimensions();
+  // The keyboard avoiding view reports the heights it takes, so the cap always
+  // matches the space actually left above the keyboard. Android draws edge to
+  // edge and no longer resizes the window for the keyboard by itself.
+  const [availableHeight, setAvailableHeight] = useState(height);
 
   return (
     <Portal>
-      <Dialog
-        {...props}
-        style={[styles.dialog, { maxHeight: Math.min(height * 0.9, 720) }, style]}
+      <KeyboardAvoidingView
+        behavior="height"
+        pointerEvents="box-none"
+        style={styles.fill}
+        onLayout={(event) =>
+          setAvailableHeight(event.nativeEvent.layout.height)
+        }
       >
-        {children}
-      </Dialog>
+        <Dialog
+          {...props}
+          style={[
+            styles.dialog,
+            { maxHeight: Math.min(availableHeight * 0.9, 720) },
+            style,
+          ]}
+        >
+          {children}
+        </Dialog>
+      </KeyboardAvoidingView>
     </Portal>
   );
 }
@@ -63,6 +82,9 @@ export function DialogBody({ children, contentStyle }: DialogBodyProps) {
 }
 
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   dialog: {
     alignSelf: 'center',
     width: '92%',
