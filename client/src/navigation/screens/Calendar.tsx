@@ -16,6 +16,7 @@ import {
 } from 'react-native-paper';
 
 import { EmptyState } from '../../components/EmptyState';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { EventDialog } from '../../components/EventDialog';
 import { ExamProgressRow } from '../../components/ExamProgressRow';
 import { SectionHeader } from '../../components/SectionHeader';
@@ -50,6 +51,16 @@ export function Calendar() {
   const [eventDialog, setEventDialog] = useState(false);
   const [taskDialog, setTaskDialog] = useState(false);
   const [editing, setEditing] = useState<StudyEvent | undefined>();
+  // Deleting an exam also removes its preparation tasks and their time.
+  const [confirming, setConfirming] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
+  const closeConfirm = () =>
+    setConfirming((current) => current && { ...current, visible: false });
 
   const selected =
     (route.params as { date?: string } | undefined)?.date ?? todayKey();
@@ -63,6 +74,19 @@ export function Calendar() {
   const openEvent = (event?: StudyEvent) => {
     setEditing(event);
     setEventDialog(true);
+  };
+
+  const confirmRemove = (event: StudyEvent) => {
+    setConfirming({
+      visible: true,
+      title: `Delete ${event.title}?`,
+      message:
+        event.kind === 'exam'
+          ? 'Its preparation tasks and the study time they logged are removed too. This cannot be undone.'
+          : 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      onConfirm: () => removeEvent(event.id),
+    });
   };
 
   return (
@@ -203,7 +227,7 @@ export function Calendar() {
                 targetMinutes={event.targetMinutes}
                 time={event.reminderTime}
                 onEdit={() => openEvent(event)}
-                onDelete={() => removeEvent(event.id)}
+                onDelete={() => confirmRemove(event)}
               />
             ) : (
               <List.Item
@@ -227,7 +251,7 @@ export function Calendar() {
                       icon="delete-outline"
                       size={20}
                       accessibilityLabel={`Delete ${event.title}`}
-                      onPress={() => removeEvent(event.id)}
+                      onPress={() => confirmRemove(event)}
                     />
                   </View>
                 )}
@@ -262,6 +286,17 @@ export function Calendar() {
         visible={taskDialog}
         initialWeekdays={taskWeekdays}
         onDismiss={() => setTaskDialog(false)}
+      />
+      <ConfirmDialog
+        visible={Boolean(confirming?.visible)}
+        title={confirming?.title ?? ''}
+        message={confirming?.message ?? ''}
+        confirmLabel={confirming?.confirmLabel ?? ''}
+        onCancel={closeConfirm}
+        onConfirm={() => {
+          confirming?.onConfirm();
+          closeConfirm();
+        }}
       />
     </ScrollView>
   );
